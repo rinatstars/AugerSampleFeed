@@ -136,7 +136,10 @@ class DeviceGUI:
                       column=1 if i < len(settings)/2 else 3, sticky="w")
             self.settings_vars[name] = var
 
-        ttk.Button(frame, text="Применить", command=self._apply_settings).grid(row=len(settings), column=0, columnspan=2, pady=5)
+        ttk.Button(frame, text="Применить", command=self._apply_settings).grid(
+            row=len(settings), column=0, columnspan=2, pady=5)
+        ttk.Button(frame, text="Прочитать", command=self._read_settings).grid(row=len(settings), column=1,
+                                                                               columnspan=2, pady=5)
 
     def _create_control_frame(self, parent):
         frame = ttk.LabelFrame(parent, text="Управление", padding=5)
@@ -202,18 +205,41 @@ class DeviceGUI:
                 messagebox.showerror("Ошибка", "Не удалось подключиться")
 
     def _apply_settings(self):
-        for name, var in self.settings_vars.items():
-            value = var.get()
-            reg_addr = REGISTERS_MAP.get(name)
-            if reg_addr is None:
-                self.append_command_log(f"[!] Неизвестный параметр: {name}")
-                continue
+        if self.controller.is_connected():
+            for name, var in self.settings_vars.items():
+                value = var.get()
+                reg_addr = REGISTERS_MAP.get(name)
+                if reg_addr is None:
+                    self.append_command_log(f"[!] Неизвестный параметр: {name}")
+                    continue
 
-            try:
-                self.controller.write_register(reg_addr, value)
-                self.append_command_log(f"[OK] Установлено {name} = {value} → регистр 0x{reg_addr:02X}")
-            except Exception as e:
-                self.append_command_log(f"[ERR] Ошибка при записи {name}: {e}")
+                try:
+                    self.controller.write_register(reg_addr, value)
+                    self.append_command_log(f"[OK] Установлено {name} = {value} → регистр 0x{reg_addr:02X}")
+                except Exception as e:
+                    self.append_command_log(f"[ERR] Ошибка при записи {name}: {e}")
+        else:
+            self.append_command_log(f"[ERR] Устройство не подключено")
+
+    def _read_settings(self):
+        if self.controller.is_connected():
+            for name, var in self.settings_vars.items():
+                reg_addr = REGISTERS_MAP.get(name)
+                if reg_addr is None:
+                    self.append_command_log(f"[!] Неизвестный параметр: {name}")
+                    continue
+
+                try:
+                    val = self.controller.read_register(reg_addr)
+                    if val:
+                        var.set(val)
+                        self.append_command_log(f"[OK] Прочитано {name} = {val} → регистр 0x{reg_addr:02X}")
+                    else:
+                        self.append_command_log(f"[ERR] Ошибка при чтении {name}: значение None")
+                except Exception as e:
+                    self.append_command_log(f"[ERR] Ошибка при чтении {name}: {e}")
+        else:
+            self.append_command_log(f"[ERR] Устройство не подключено")
 
     def _send_command(self, reg, value):
         try:
