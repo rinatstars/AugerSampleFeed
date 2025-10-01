@@ -1,0 +1,13 @@
+# Виртуальное окружение
+venv/
+.venv/
+build/
+env/
+*.pyc
+__pycache__/
+.pytest_cache/
+.idea/
+logs/
+*.xlsx
+/logs/
+/build/
