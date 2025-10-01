@@ -77,7 +77,10 @@ def git_push(version: str):
         if status.stdout.strip():  # если есть изменения
             subprocess.run(["git", "add", "."], check=True)
             subprocess.run(["git", "commit", "-m", f"Release v{version}"], check=True)
-            subprocess.run(["git", "push"], check=True)
+            try:
+                subprocess.run(["git", "push"], check=True)
+            except subprocess.CalledProcessError:
+                subprocess.run(["git", "push", "--set-upstream", "origin", "main"], check=True)
             print("✅ Изменения закоммичены и запушены")
         else:
             print("ℹ️ Нет изменений для коммита, пропускаем commit/push")
