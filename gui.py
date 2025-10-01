@@ -1,5 +1,7 @@
 import tkinter as tk
 import time
+import sys
+import os
 from tkinter import ttk, scrolledtext, messagebox, StringVar
 import serial.tools.list_ports
 from constants import (
@@ -11,13 +13,20 @@ from constants import (
 )
 
 
+def resource_path(relative_path):
+    """Определяет путь к ресурсам в .exe и при запуске из исходников"""
+    if hasattr(sys, "_MEIPASS"):
+        return os.path.join(sys._MEIPASS, relative_path)
+    return os.path.join(os.path.abspath("."), relative_path)
+
+
 class DeviceGUI:
     def __init__(self, controller):
         self.controller = controller
         self.window = tk.Tk()
         self.window.title("Auger sample introduction system")
         self.window.geometry("900x650")
-        self.window.iconbitmap("icon.ico")
+        self.window.iconbitmap(resource_path("icon.ico"))
         self.interval_polling = StringVar(value="Обновление окна: ---мс")
         self.interval_upd_data = StringVar(value="Обновление данных: ---мс")
         self._setup_ui()

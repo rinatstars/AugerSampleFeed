@@ -75,7 +75,7 @@ def git_push(version: str):
         # Проверяем, есть ли изменения
         status = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True)
         if status.stdout.strip():  # если есть изменения
-            subprocess.run(["git", "add", "version.txt"], check=True)
+            subprocess.run(["git", "add", "."], check=True)
             subprocess.run(["git", "commit", "-m", f"Release v{version}"], check=True)
             subprocess.run(["git", "push"], check=True)
             print("✅ Изменения закоммичены и запушены")
@@ -111,7 +111,7 @@ def build():
     # Создаем папку для этой версии
     os.makedirs(dist_dir, exist_ok=True)
 
-    # Перемещаем exe (он будет в dist/ExportAtomExcel v*.*.*/exportExcel.exe)
+    # Перемещаем exe (он будет в dist/AugerSmapleFeed v*.*.*/AugerSmapleFeed.exe)
     exe_path = os.path.join("dist", f"{APP_NAME}.exe")
     shutil.move(exe_path, os.path.join(dist_dir, f"{APP_NAME}.exe"))
     # Перемещаем _internal (он будет в dist/ExportAtomExcel v*.*.*/_internal)
