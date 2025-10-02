@@ -310,9 +310,9 @@ class DeviceGUI:
                     elif name == "M1_BACK":
                         reg_addr = REGISTERS_MAP.get('SET_PERIOD_M1')
                         MOTOR_SPEED_1 = self.config['MOTOR_SPEED_1']
-                        value = self.settings_vars['SET_PERIOD_M1'].get()
-                        value = 1 / (value / MOTOR_SPEED_1)
-                        self.controller.write_register(reg_addr, int(value))
+                        previous_speed = self.settings_vars['SET_PERIOD_M1'].get()
+                        previous_speed = 1 / (previous_speed / MOTOR_SPEED_1)
+                        self.controller.write_register(reg_addr, int(previous_speed))
 
             if self.end_time:
                 seconds = self.end_time - self.start_time
