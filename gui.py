@@ -304,11 +304,11 @@ class DeviceGUI:
                         self.end_time = time.time()
 
                     if name == "M1_BACK" and var.get():
-                        reg_addr = REGISTERS_MAP.get(self.settings_vars['SET_PERIOD_M1'])
+                        reg_addr = REGISTERS_MAP.get('SET_PERIOD_M1')
                         self.controller.write_register(reg_addr, int(5000))
 
                     elif name == "M1_BACK":
-                        reg_addr = REGISTERS_MAP.get(self.settings_vars['SET_PERIOD_M1'])
+                        reg_addr = REGISTERS_MAP.get('SET_PERIOD_M1')
                         self.controller.write_register(reg_addr, int(self.settings_vars['SET_PERIOD_M1']))
 
             if self.end_time:
