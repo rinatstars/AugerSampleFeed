@@ -60,3 +60,6 @@ REGISTERS_MAP = {
     "T_GRIND": REG_T_GRIND,
     "T_PURGING": REG_T_PURGING,
 }
+
+# Перевод скоростей
+
