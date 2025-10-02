@@ -34,10 +34,9 @@ class DeviceGUI:
         self._start_background_tasks()
         self.controller.init_func_time_culc(self._update_interval_upd_data)
 
-        self.start_time = 0
+        self.start_time = time.time()
         self.end_time = None
         self.config = config
-
 
     def _setup_ui(self):
         main_container = ttk.Frame(self.window, padding="10")
@@ -310,6 +309,7 @@ class DeviceGUI:
             else:
                 seconds = time.time() - self.start_time
                 self.interval_work_auger.set(f'Время подачи пробы: {round(seconds, 1)} c')
+                self.append_command_log(f'Время подачи пробы: {round(seconds, 1)}')
 
         while not self.controller.motor1_period_queue.empty():
             address, value = self.controller.motor1_period_queue.get()
