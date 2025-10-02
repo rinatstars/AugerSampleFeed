@@ -118,13 +118,13 @@ class DeviceGUI:
 
         self.settings_vars = {}
         settings = [
-            ("SET_PERIOD_M1", 1000),
-            ("SET_PERIOD_M2", 1000),
+            ("SET_PERIOD_M1", 6000),
+            ("SET_PERIOD_M2", 6000),
             ("PERIOD_M1", 1000),
             ("PERIOD_M2", 1000),
-            ("T_START", 500),
-            ("T_GRIND", 500),
-            ("T_PURGING", 500),
+            ("T_START", 1000),
+            ("T_GRIND", 1000),
+            ("T_PURGING", 2000),
         ]
 
         for i, (name, default) in enumerate(settings):
