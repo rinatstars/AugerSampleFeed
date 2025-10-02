@@ -317,7 +317,7 @@ class DeviceGUI:
             else:
                 seconds = time.time() - self.start_time
                 self.interval_work_auger.set(f'Время подачи пробы: {round(seconds, 1)} c')
-                self.append_command_log(f'Время подачи пробы: {round(seconds, 1)}')
+
 
         while not self.controller.motor1_period_queue.empty():
             address, value = self.controller.motor1_period_queue.get()
