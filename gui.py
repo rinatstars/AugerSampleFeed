@@ -125,9 +125,9 @@ class DeviceGUI:
 
         self.settings_vars = {}
         settings = [
-            ("SET_PERIOD_M1", 24, 'Подача уст, мм/мин'),
+            ("SET_PERIOD_M1", 20, 'Подача уст, мм/мин'),
             ("SET_PERIOD_M2", 140, 'Вращение уст, об/мин'),
-            ("PERIOD_M1", 24, 'Подача изм, мм/мин'),
+            ("PERIOD_M1", 20, 'Подача изм, мм/мин'),
             ("PERIOD_M2", 140, 'Вращение изм, об/мин'),
             ("T_START", 500, 'T_START'),
             ("T_GRIND", 500, 'T_GRIND'),
