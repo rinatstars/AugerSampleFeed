@@ -102,14 +102,17 @@ def build():
     # Удалим build/dist, чтобы не было мусора
     if os.path.exists("build"):
         shutil.rmtree("build")
-    if os.path.exists("dist"):
-        shutil.rmtree("dist")
+    # if os.path.exists("dist"):
+    #     shutil.rmtree("dist")
 
     # Сгенерируем файл с версией
     create_version_file(version)
 
     # Собираем по .spec
-    subprocess.run(["pyinstaller", SPEC_FILE], check=True)
+    subprocess.run(
+        [os.path.join("venv", "Scripts", "python.exe"), "-m", "PyInstaller", SPEC_FILE],
+        check=True
+    )
 
     # Создаем папку для этой версии
     os.makedirs(dist_dir, exist_ok=True)

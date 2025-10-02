@@ -9,7 +9,7 @@ from constants import (
     REG_COM_M1, REG_COM_M2,
     CMD_NULL, CMD_START,
     MOTOR_CMD_START_FWD, MOTOR_CMD_START_BACK, MOTOR_CMD_STOP,
-    VERIFY_CODE, REGISTERS_MAP
+    VERIFY_CODE, REGISTERS_MAP, REG_PERIOD_M1, REG_PERIOD_M2
 )
 
 
@@ -265,6 +265,14 @@ class DeviceGUI:
             if address == REG_STATUS:
                 for i, (name, var) in enumerate(self.status_vars.items()):
                     var.set(bool(value & (1 << i)))
+        while not self.controller.motor1_period_queue.empty():
+            address, value = self.controller.motor1_period_queue.get()
+            if address == REG_PERIOD_M1:
+                self.settings_vars["PERIOD_M1"].set(value)
+        while not self.controller.motor2_period_queue.empty():
+            address, value = self.controller.motor2_period_queue.get()
+            if address == REG_PERIOD_M2:
+                self.settings_vars["PERIOD_M2"].set(value)
 
 
     def _update_interval_upd_data(self, interval):

@@ -2,7 +2,6 @@ import serial
 import threading
 import queue
 import time
-
 import constants as C
 from crc import crc7_generate
 
@@ -27,6 +26,8 @@ class SerialDeviceController:
 
         # Очереди для регистров
         self.status_queue = queue.Queue(maxsize=10)
+        self.motor1_period_queue = queue.Queue(maxsize=10)
+        self.motor2_period_queue = queue.Queue(maxsize=10)
 
     @property
     def serial_port(self):
@@ -149,6 +150,8 @@ class SerialDeviceController:
         def polling_loop(one_poll=False):
             polling_config = [
                 (C.REG_STATUS, self.status_queue),
+                (C.REG_PERIOD_M1, self.motor1_period_queue),
+                (C.REG_PERIOD_M2, self.motor2_period_queue),
             ]
 
             def poll():
