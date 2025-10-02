@@ -9,7 +9,7 @@ from constants import (
     REG_COM_M1, REG_COM_M2,
     CMD_NULL, CMD_START,
     MOTOR_CMD_START_FWD, MOTOR_CMD_START_BACK, MOTOR_CMD_STOP,
-    VERIFY_CODE, REGISTERS_MAP, REG_PERIOD_M1, REG_PERIOD_M2
+    VERIFY_CODE, REGISTERS_MAP, REG_PERIOD_M1, REG_PERIOD_M2,
 )
 
 
@@ -21,17 +21,22 @@ def resource_path(relative_path):
 
 
 class DeviceGUI:
-    def __init__(self, controller):
+    def __init__(self, controller, config):
         self.controller = controller
         self.window = tk.Tk()
         self.window.title("Auger sample introduction system")
-        self.window.geometry("900x650")
+        self.window.geometry("900x700")
         self.window.iconbitmap(resource_path("icon.ico"))
         self.interval_polling = StringVar(value="Обновление окна: ---мс")
         self.interval_upd_data = StringVar(value="Обновление данных: ---мс")
+        self.interval_work_auger = StringVar(value="Время подачи пробы: ---с")
+        self.config = config
         self._setup_ui()
         self._start_background_tasks()
         self.controller.init_func_time_culc(self._update_interval_upd_data)
+
+        self.start_time = 0
+        self.end_time = None
 
 
     def _setup_ui(self):
@@ -66,6 +71,9 @@ class DeviceGUI:
 
         # Связь
         self._create_ping_frame(left_frame)
+
+        # Связь
+        self._create_time_work_frame(left_frame)
 
         # Журнал команд
         self._create_log_frame(right_frame)
@@ -109,7 +117,7 @@ class DeviceGUI:
         for i, bit in enumerate(bits):
             var = tk.BooleanVar(value=False)
             cb = ttk.Checkbutton(frame, text=bit, variable=var, state="disabled")
-            cb.grid(row=i // 2, column=i % 2, sticky="w")
+            cb.grid(row=i // 4, column=i % 4, sticky="w")
             self.status_vars[bit] = var
 
     def _create_settings_frame(self, parent):
@@ -117,29 +125,97 @@ class DeviceGUI:
         frame.pack(fill="x", pady=5)
 
         self.settings_vars = {}
+        self.settings_vars_raw = {}
+        self._syncing = False  # флаг для защиты от рекурсии
+
         settings = [
-            ("SET_PERIOD_M1", 6000),
-            ("SET_PERIOD_M2", 6000),
-            ("PERIOD_M1", 1000),
-            ("PERIOD_M2", 1000),
-            ("T_START", 1000),
-            ("T_GRIND", 1000),
-            ("T_PURGING", 2000),
+            ("SET_PERIOD_M1", 24, 'Подача уст, мм/мин'),
+            ("SET_PERIOD_M2", 140, 'Вращение уст, об/мин'),
+            ("PERIOD_M1", 24, 'Подача изм, мм/мин'),
+            ("PERIOD_M2", 140, 'Вращение изм, об/мин'),
+            ("T_START", 1000, 'T_START'),
+            ("T_GRIND", 1000, 'T_GRIND'),
+            ("T_PURGING", 2000, 'T_PURGING'),
         ]
 
-        for i, (name, default) in enumerate(settings):
-            ttk.Label(frame, text=name).grid(row=i if i < len(settings)/2 else i - round(len(settings)/2),
-                                             column=0 if i < len(settings)/2 else 2, sticky="w")
-            var = tk.IntVar(value=default)
-            spin = ttk.Spinbox(frame, from_=0, to=100000, increment=100, textvariable=var, width=10)
-            spin.grid(row=i if i < len(settings)/2 else i - round(len(settings)/2),
-                      column=1 if i < len(settings)/2 else 3, sticky="w")
+        settings_raw = [
+            "SET_PERIOD_M1",
+            "SET_PERIOD_M2",
+            "PERIOD_M1",
+            "PERIOD_M2",
+        ]
+
+        MOTOR_SPEED_1 = self.config['MOTOR_SPEED_1']
+        MOTOR_SPEED_2 = self.config['MOTOR_SPEED_2']
+
+        # --- функции пересчёта ---
+        def update_raw_from_human(name):
+            if self._syncing:
+                return
+            self._syncing = True
+            try:
+                try:
+                    val = self.settings_vars[name].get()
+                except tk.TclError:
+                    val = 0
+                if name in ("SET_PERIOD_M1", "PERIOD_M1") and val > 0:
+                    self.settings_vars_raw[name].set(int(MOTOR_SPEED_1 / val))
+                elif name in ("SET_PERIOD_M2", "PERIOD_M2") and val > 0:
+                    self.settings_vars_raw[name].set(int(MOTOR_SPEED_2 / val))
+            finally:
+                self._syncing = False
+
+        def update_human_from_raw(name):
+            if self._syncing:
+                return
+            self._syncing = True
+            try:
+                try:
+                    val = self.settings_vars_raw[name].get()
+                except tk.TclError:
+                    val = 0
+                if name in ("SET_PERIOD_M1", "PERIOD_M1") and val > 0:
+                    self.settings_vars[name].set(round(MOTOR_SPEED_1 / val, 1))
+                elif name in ("SET_PERIOD_M2", "PERIOD_M2") and val > 0:
+                    self.settings_vars[name].set(round(MOTOR_SPEED_2 / val, 1))
+            finally:
+                self._syncing = False
+
+        # --- создаём поля ---
+        for i, (name, default, alias) in enumerate(settings):
+            ttk.Label(frame, text=alias).grid(row=i, column=0, sticky="w")
+            var = tk.DoubleVar(value=default)
+            spin = ttk.Spinbox(frame, from_=0, to=100000, increment=1,
+                               textvariable=var, width=10)
+            spin.grid(row=i, column=1, sticky="w")
             self.settings_vars[name] = var
+
+        for i, name in enumerate(settings_raw):
+            ttk.Label(frame, text="период, мс:").grid(row=i, column=2, sticky="w")
+            if name in ("SET_PERIOD_M1", "PERIOD_M1"):
+                init_val = int(MOTOR_SPEED_1 / self.settings_vars[name].get())
+            else:
+                init_val = int(MOTOR_SPEED_2 / self.settings_vars[name].get())
+
+            var = tk.IntVar(value=init_val)
+            spin = ttk.Spinbox(frame, from_=0, to=100000, increment=100,
+                               textvariable=var, width=10)
+            spin.grid(row=i, column=3, sticky="w")
+            self.settings_vars_raw[name] = var
+
+        # --- привязываем обработчики ---
+        for name in settings_raw:
+            self.settings_vars[name].trace_add("write",
+                                               lambda *_,
+                                                      n=name: update_raw_from_human(n))
+            self.settings_vars_raw[name].trace_add("write",
+                                                   lambda *_,
+                                                          n=name: update_human_from_raw(n))
 
         ttk.Button(frame, text="Применить", command=self._apply_settings).grid(
             row=len(settings), column=0, columnspan=2, pady=5)
-        ttk.Button(frame, text="Прочитать", command=self._read_settings).grid(row=len(settings), column=1,
-                                                                               columnspan=2, pady=5)
+        ttk.Button(frame, text="Прочитать", command=self._read_settings).grid(
+            row=len(settings), column=1, columnspan=2, pady=5)
 
     def _create_control_frame(self, parent):
         frame = ttk.LabelFrame(parent, text="Управление", padding=5)
@@ -171,6 +247,12 @@ class DeviceGUI:
         ttk.Label(frame, textvariable=self.interval_polling).grid(row=0, column=0, padx=5, sticky='w')
         ttk.Label(frame, textvariable=self.interval_upd_data).grid(row=0, column=1, padx=5, sticky='w')
 
+    def _create_time_work_frame(self, parent):
+        frame = ttk.LabelFrame(parent, text="Время работы", padding="5")
+        frame.pack(fill='x', pady=5)
+
+        ttk.Label(frame, textvariable=self.interval_work_auger).grid(row=0, column=0, padx=5, sticky='w')
+
     def _create_log_frame(self, parent):
         frame = ttk.LabelFrame(parent, text="Журнал команд", padding=5)
         frame.pack(fill="both", expand=True)
@@ -178,8 +260,24 @@ class DeviceGUI:
         self.command_output = scrolledtext.ScrolledText(frame, wrap="word", state="normal")
         self.command_output.pack(fill="both", expand=True)
 
-        # Запрет ввода вручную
-        self.command_output.bind("<Key>", lambda e: "break")
+        # Разрешить выделение и копирование, но запретить ввод
+        def disable_typing(event):
+            # Разрешаем только сочетания копирования и выделения
+            if (event.state & 0x4) and event.keysym in ("c", "a"):
+                return  # Ctrl+C и Ctrl+A разрешены
+            return "break"
+
+        self.command_output.bind("<Key>", disable_typing)
+
+        # Добавим контекстное меню (копировать/выделить всё)
+        menu = tk.Menu(self.command_output, tearoff=0)
+        menu.add_command(label="Копировать", command=lambda: self.command_output.event_generate("<<Copy>>"))
+        menu.add_command(label="Выделить всё", command=lambda: self.command_output.tag_add("sel", "1.0", "end"))
+
+        def show_context_menu(event):
+            menu.tk_popup(event.x_root, event.y_root)
+
+        self.command_output.bind("<Button-3>", show_context_menu)
 
     def _refresh_ports(self):
         """Обновляет список доступных COM-портов"""
@@ -201,6 +299,7 @@ class DeviceGUI:
                 #self.controller.start_polling()
                 self.append_command_log(f"Подключено: {self.port_var.get()} @ {self.baud_var.get()}")
                 self.connect_btn.config(text="Отключить")
+                self._read_settings()
             else:
                 messagebox.showerror("Ошибка", "Не удалось подключиться")
 
@@ -214,7 +313,14 @@ class DeviceGUI:
                     continue
 
                 try:
-                    self.controller.write_register(reg_addr, value)
+                    MOTOR_SPEED_1 = self.config['MOTOR_SPEED_1']
+                    MOTOR_SPEED_2 = self.config['MOTOR_SPEED_2']
+                    if name == 'SET_PERIOD_M1':
+                        value = 1 / (value / MOTOR_SPEED_1)
+
+                    if name == 'SET_PERIOD_M2':
+                        value = 1 / (value / MOTOR_SPEED_2)
+                    self.controller.write_register(reg_addr, int(value))
                     self.append_command_log(f"[OK] Установлено {name} = {value} → регистр 0x{reg_addr:02X}")
                 except Exception as e:
                     self.append_command_log(f"[ERR] Ошибка при записи {name}: {e}")
@@ -231,9 +337,18 @@ class DeviceGUI:
 
                 try:
                     val = self.controller.read_register(reg_addr)
+                    MOTOR_SPEED_1 = self.config['MOTOR_SPEED_1']
+                    MOTOR_SPEED_2 = self.config['MOTOR_SPEED_2']
                     if val:
-                        var.set(val)
                         self.append_command_log(f"[OK] Прочитано {name} = {val} → регистр 0x{reg_addr:02X}")
+                    if name == 'SET_PERIOD_M1':
+                        val = MOTOR_SPEED_1 / val
+
+                    if name == 'SET_PERIOD_M2':
+                        val = MOTOR_SPEED_2 / val
+
+                    if val:
+                        var.set(round(val, 2))
                     else:
                         self.append_command_log(f"[ERR] Ошибка при чтении {name}: значение None")
                 except Exception as e:
@@ -265,14 +380,32 @@ class DeviceGUI:
             if address == REG_STATUS:
                 for i, (name, var) in enumerate(self.status_vars.items()):
                     var.set(bool(value & (1 << i)))
+
+                    if name == "BEG_BLK" and var.get():
+                        self.start_time = time.time()
+                        self.end_time = None
+
+                    if name == "END_BLK" and var.get() and self.end_time is None:
+                        self.end_time = time.time()
+
+            if self.end_time:
+                seconds = self.end_time - self.start_time
+                self.interval_work_auger.set(f'Время подачи пробы: {round(seconds, 1)} c')
+            else:
+                seconds = time.time() - self.start_time
+                self.interval_work_auger.set(f'Время подачи пробы: {round(seconds, 1)} c')
+
         while not self.controller.motor1_period_queue.empty():
             address, value = self.controller.motor1_period_queue.get()
             if address == REG_PERIOD_M1:
-                self.settings_vars["PERIOD_M1"].set(value)
+                MOTOR_SPEED_1 = self.config['MOTOR_SPEED_1']
+
+                self.settings_vars["PERIOD_M1"].set(round(MOTOR_SPEED_1 / value, 2))
         while not self.controller.motor2_period_queue.empty():
             address, value = self.controller.motor2_period_queue.get()
             if address == REG_PERIOD_M2:
-                self.settings_vars["PERIOD_M2"].set(value)
+                MOTOR_SPEED_2 = self.config['MOTOR_SPEED_2']
+                self.settings_vars["PERIOD_M2"].set(round(MOTOR_SPEED_2 / value, 2))
 
 
     def _update_interval_upd_data(self, interval):
