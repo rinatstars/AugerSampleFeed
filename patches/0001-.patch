@@ -1,0 +1,236 @@
+From 10ef2ec3b30a7ff490068d51d97f83220f2e2917 Mon Sep 17 00:00:00 2001
+From: fatstas <stas9907092014@gmail.com>
+Date: Thu, 2 Oct 2025 16:21:59 +0700
+Subject: [PATCH] =?UTF-8?q?=D0=9F=D0=B5=D1=80=D0=B5=D1=81=D1=87=D0=B5?=
+ =?UTF-8?q?=D1=82=20=D0=BF=D0=B5=D1=80=D0=B8=D0=BE=D0=B4=D0=BE=D0=B2=20?=
+ =?UTF-8?q?=D0=B2=20=D0=BC=D0=BC=20=D0=B8=20=D0=BE=D0=B1=D0=BE=D1=80=D0=BE?=
+ =?UTF-8?q?=D1=82=D1=8B=20=D0=B2=20=D1=81=D0=B5=D0=BA=D1=83=D0=BD=D0=B4?=
+ =?UTF-8?q?=D1=83,=20=D0=B2=D1=80=D0=B5=D0=BC=D1=8F=20=D0=BF=D0=BE=D0=B4?=
+ =?UTF-8?q?=D0=B0=D1=87=D0=B8=20=D0=BF=D1=80=D0=BE=D0=B1=D1=8B?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ config.json  |  4 ++-
+ constants.py |  3 ++
+ gui.py       | 83 +++++++++++++++++++++++++++++++++++++++++-----------
+ main.pyw     |  6 ++--
+ 4 files changed, 76 insertions(+), 20 deletions(-)
+
+diff --git a/config.json b/config.json
+index 9f0c03e..debd709 100644
+--- a/config.json
++++ b/config.json
+@@ -1,5 +1,7 @@
+ {
+   "port": "COM4",
+   "baudrate": 38400,
+-  "device_id": 3
++  "device_id": 3,
++  "MOTOR_SPEED_1": 137270,
++  "MOTOR_SPEED_2": 1405000
+ }
+\ No newline at end of file
+diff --git a/constants.py b/constants.py
+index c6806a2..92852be 100644
+--- a/constants.py
++++ b/constants.py
+@@ -60,3 +60,6 @@ REGISTERS_MAP = {
+     "T_GRIND": REG_T_GRIND,
+     "T_PURGING": REG_T_PURGING,
+ }
++
++# Перевод скоростей
++
+diff --git a/gui.py b/gui.py
+index d78c558..d05c729 100644
+--- a/gui.py
++++ b/gui.py
+@@ -9,7 +9,7 @@ from constants import (
+     REG_COM_M1, REG_COM_M2,
+     CMD_NULL, CMD_START,
+     MOTOR_CMD_START_FWD, MOTOR_CMD_START_BACK, MOTOR_CMD_STOP,
+-    VERIFY_CODE, REGISTERS_MAP, REG_PERIOD_M1, REG_PERIOD_M2
++    VERIFY_CODE, REGISTERS_MAP, REG_PERIOD_M1, REG_PERIOD_M2,
+ )
+ 
+ 
+@@ -21,18 +21,23 @@ def resource_path(relative_path):
+ 
+ 
+ class DeviceGUI:
+-    def __init__(self, controller):
++    def __init__(self, controller, config):
+         self.controller = controller
+         self.window = tk.Tk()
+         self.window.title("Auger sample introduction system")
+-        self.window.geometry("900x650")
++        self.window.geometry("900x700")
+         self.window.iconbitmap(resource_path("icon.ico"))
+         self.interval_polling = StringVar(value="Обновление окна: ---мс")
+         self.interval_upd_data = StringVar(value="Обновление данных: ---мс")
++        self.interval_work_auger = StringVar(value="Время подачи пробы: ---с")
+         self._setup_ui()
+         self._start_background_tasks()
+         self.controller.init_func_time_culc(self._update_interval_upd_data)
+ 
++        self.start_time = 0
++        self.end_time = None
++        self.config = config
++
+ 
+     def _setup_ui(self):
+         main_container = ttk.Frame(self.window, padding="10")
+@@ -67,6 +72,9 @@ class DeviceGUI:
+         # Связь
+         self._create_ping_frame(left_frame)
+ 
++        # Связь
++        self._create_time_work_frame(left_frame)
++
+         # Журнал команд
+         self._create_log_frame(right_frame)
+ 
+@@ -118,19 +126,19 @@ class DeviceGUI:
+ 
+         self.settings_vars = {}
+         settings = [
+-            ("SET_PERIOD_M1", 1000),
+-            ("SET_PERIOD_M2", 1000),
+-            ("PERIOD_M1", 1000),
+-            ("PERIOD_M2", 1000),
+-            ("T_START", 500),
+-            ("T_GRIND", 500),
+-            ("T_PURGING", 500),
++            ("SET_PERIOD_M1", 24, 'Подача уст, мм/мин'),
++            ("SET_PERIOD_M2", 140, 'Вращение уст, об/мин'),
++            ("PERIOD_M1", 24, 'Подача изм, мм/мин'),
++            ("PERIOD_M2", 140, 'Вращение изм, об/мин'),
++            ("T_START", 500, 'T_START'),
++            ("T_GRIND", 500, 'T_GRIND'),
++            ("T_PURGING", 500, 'T_PURGING'),
+         ]
+ 
+-        for i, (name, default) in enumerate(settings):
+-            ttk.Label(frame, text=name).grid(row=i if i < len(settings)/2 else i - round(len(settings)/2),
++        for i, (name, default, alias) in enumerate(settings):
++            ttk.Label(frame, text=alias).grid(row=i if i < len(settings)/2 else i - round(len(settings)/2),
+                                              column=0 if i < len(settings)/2 else 2, sticky="w")
+-            var = tk.IntVar(value=default)
++            var = tk.DoubleVar(value=default)
+             spin = ttk.Spinbox(frame, from_=0, to=100000, increment=100, textvariable=var, width=10)
+             spin.grid(row=i if i < len(settings)/2 else i - round(len(settings)/2),
+                       column=1 if i < len(settings)/2 else 3, sticky="w")
+@@ -171,6 +179,13 @@ class DeviceGUI:
+         ttk.Label(frame, textvariable=self.interval_polling).grid(row=0, column=0, padx=5, sticky='w')
+         ttk.Label(frame, textvariable=self.interval_upd_data).grid(row=0, column=1, padx=5, sticky='w')
+ 
++    def _create_time_work_frame(self, parent):
++        frame = ttk.LabelFrame(parent, text="Время работы", padding="5")
++        frame.pack(fill='x', pady=5)
++
++        ttk.Label(frame, textvariable=self.interval_work_auger).grid(row=0, column=0, padx=5, sticky='w')
++
++
+     def _create_log_frame(self, parent):
+         frame = ttk.LabelFrame(parent, text="Журнал команд", padding=5)
+         frame.pack(fill="both", expand=True)
+@@ -214,7 +229,14 @@ class DeviceGUI:
+                     continue
+ 
+                 try:
+-                    self.controller.write_register(reg_addr, value)
++                    MOTOR_SPEED_1 = self.config['MOTOR_SPEED_1']
++                    MOTOR_SPEED_2 = self.config['MOTOR_SPEED_2']
++                    if name == 'SET_PERIOD_M1':
++                        value = 1 / (value / MOTOR_SPEED_1)
++
++                    if name == 'SET_PERIOD_M2':
++                        value = 1 / (value / MOTOR_SPEED_2)
++                    self.controller.write_register(reg_addr, int(value))
+                     self.append_command_log(f"[OK] Установлено {name} = {value} → регистр 0x{reg_addr:02X}")
+                 except Exception as e:
+                     self.append_command_log(f"[ERR] Ошибка при записи {name}: {e}")
+@@ -231,9 +253,18 @@ class DeviceGUI:
+ 
+                 try:
+                     val = self.controller.read_register(reg_addr)
++                    MOTOR_SPEED_1 = self.config['MOTOR_SPEED_1']
++                    MOTOR_SPEED_2 = self.config['MOTOR_SPEED_2']
+                     if val:
+-                        var.set(val)
+                         self.append_command_log(f"[OK] Прочитано {name} = {val} → регистр 0x{reg_addr:02X}")
++                    if name == 'SET_PERIOD_M1':
++                        val = MOTOR_SPEED_1 / val
++
++                    if name == 'SET_PERIOD_M2':
++                        val = MOTOR_SPEED_2 / val
++
++                    if val:
++                        var.set(round(val, 2))
+                     else:
+                         self.append_command_log(f"[ERR] Ошибка при чтении {name}: значение None")
+                 except Exception as e:
+@@ -265,14 +296,32 @@ class DeviceGUI:
+             if address == REG_STATUS:
+                 for i, (name, var) in enumerate(self.status_vars.items()):
+                     var.set(bool(value & (1 << i)))
++
++                    if name == "BEG_BLK" and var.get():
++                        self.start_time = time.time()
++                        self.end_time = None
++
++                    if name == "END_BLK" and var.get() and self.end_time is None:
++                        self.end_time = time.time()
++
++            if self.end_time:
++                seconds = self.end_time - self.start_time
++                self.interval_work_auger.set(f'Время подачи пробы: {round(seconds, 1)} c')
++            else:
++                seconds = time.time() - self.start_time
++                self.interval_work_auger.set(f'Время подачи пробы: {round(seconds, 1)} c')
++
+         while not self.controller.motor1_period_queue.empty():
+             address, value = self.controller.motor1_period_queue.get()
+             if address == REG_PERIOD_M1:
+-                self.settings_vars["PERIOD_M1"].set(value)
++                MOTOR_SPEED_1 = self.config['MOTOR_SPEED_1']
++
++                self.settings_vars["PERIOD_M1"].set(round(MOTOR_SPEED_1 / value, 2))
+         while not self.controller.motor2_period_queue.empty():
+             address, value = self.controller.motor2_period_queue.get()
+             if address == REG_PERIOD_M2:
+-                self.settings_vars["PERIOD_M2"].set(value)
++                MOTOR_SPEED_2 = self.config['MOTOR_SPEED_2']
++                self.settings_vars["PERIOD_M2"].set(round(MOTOR_SPEED_2 / value, 2))
+ 
+ 
+     def _update_interval_upd_data(self, interval):
+diff --git a/main.pyw b/main.pyw
+index b584be0..3b8920a 100644
+--- a/main.pyw
++++ b/main.pyw
+@@ -25,7 +25,9 @@ def main():
+         config = {
+             "port": "COM3",
+             "baudrate": 38400,
+-            "device_id": 3
++            "device_id": 3,
++            "MOTOR_SPEED_1": 137270,
++            "MOTOR_SPEED_2": 1405000
+         }
+ 
+     controller = SerialDeviceController(
+@@ -34,7 +36,7 @@ def main():
+         device_id=config.get("device_id", 3),
+     )
+ 
+-    app = DeviceGUI(controller)
++    app = DeviceGUI(controller, config)
+ 
+     # перенаправим stdout/stderr в лог GUI
+     class GuiOutputRedirector:
+-- 
+2.48.1.windows.1
+

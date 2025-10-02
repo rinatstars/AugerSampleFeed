@@ -303,6 +303,14 @@ class DeviceGUI:
                     if name == "END_BLK" and var.get() and self.end_time is None:
                         self.end_time = time.time()
 
+                    if name == "M1_BACK" and var.get():
+                        reg_addr = REGISTERS_MAP.get(self.settings_vars['SET_PERIOD_M1'])
+                        self.controller.write_register(reg_addr, int(5000))
+
+                    elif name == "M1_BACK":
+                        reg_addr = REGISTERS_MAP.get(self.settings_vars['SET_PERIOD_M1'])
+                        self.controller.write_register(reg_addr, int(self.settings_vars['SET_PERIOD_M1']))
+
             if self.end_time:
                 seconds = self.end_time - self.start_time
                 self.interval_work_auger.set(f'Время подачи пробы: {round(seconds, 1)} c')
