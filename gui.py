@@ -25,7 +25,7 @@ class DeviceGUI:
         self.controller = controller
         self.window = tk.Tk()
         self.window.title("Auger sample introduction system")
-        self.window.geometry("900x700")
+        self.window.geometry("900x750")
         self.window.iconbitmap(resource_path("icon.ico"))
         self.interval_polling = StringVar(value="Обновление окна: ---мс")
         self.interval_upd_data = StringVar(value="Обновление данных: ---мс")
@@ -251,7 +251,7 @@ class DeviceGUI:
         frame.pack(fill='x', pady=5)
 
         ttk.Label(frame, textvariable=self.interval_polling, width=25).grid(row=0, column=0, padx=5, sticky='w')
-        ttk.Label(frame, textvariable=self.interval_upd_data, width=25).grid(row=0, column=1, padx=5, sticky='w')
+        ttk.Label(frame, textvariable=self.interval_upd_data, width=27).grid(row=0, column=1, padx=5, sticky='w')
 
     def _create_time_work_frame(self, parent):
         frame = ttk.LabelFrame(parent, text="Время работы", padding="5")
