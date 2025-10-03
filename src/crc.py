@@ -1,6 +1,6 @@
 """Модуль для вычисления CRC7"""
 
-from constants import CRC7_POLYNOMIAL
+from src.constants import CRC7_POLYNOMIAL
 
 
 def gen_crc7_table():

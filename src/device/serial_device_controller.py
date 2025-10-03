@@ -1,9 +1,8 @@
 import serial
 import threading
-import queue
 import time
-import constants as C
-from crc import crc7_generate
+from src import constants as C
+from src.crc import crc7_generate
 
 
 class SerialDeviceController:
@@ -18,23 +17,12 @@ class SerialDeviceController:
         self.lock = threading.Lock()
         self.serial = None
 
-        # Для фонового опроса
-        self.running = False
-        self.t = None
-        self.start_polling_time = 0
-        self.func_calc_time = None  # callback для отчёта времени опроса
-
-        # Очереди для регистров
-        self.status_queue = queue.Queue(maxsize=10)
-        self.motor1_period_queue = queue.Queue(maxsize=10)
-        self.motor2_period_queue = queue.Queue(maxsize=10)
-
     @property
     def serial_port(self):
         """Совместимость с GUI"""
         return self.serial
 
-    def connect(self, port=None, baudrate=None):
+    def connect(self, port=None, baudrate=None, timeout=None):
         """Открывает COM-порт и запускает опрос"""
         if port:
             self.port = port
@@ -44,11 +32,11 @@ class SerialDeviceController:
             self.serial = serial.Serial(
                 port=self.port,
                 baudrate=self.baudrate,
-                timeout=self.timeout,
-                write_timeout=C.WRITE_TIMEOUT
+                timeout=timeout if timeout is not None else self.timeout,
+                write_timeout=timeout if timeout is not None else C.WRITE_TIMEOUT
             )
             if self.serial.is_open:
-                self.start_polling()
+                #self.start_polling()
                 return True
             return False
         except Exception as e:
@@ -58,7 +46,7 @@ class SerialDeviceController:
 
     def disconnect(self):
         """Закрывает порт и останавливает опрос"""
-        self.stop_polling()
+        #self.stop_polling()
         if self.serial and self.serial.is_open:
             self.serial.close()
             self.serial = None
@@ -116,7 +104,7 @@ class SerialDeviceController:
                 request = self._build_frame(address, write=False)
                 self.serial.reset_input_buffer()
                 self.serial.write(request)
-                time.sleep(0.02)
+                #time.sleep(0.02)
                 response = self.serial.read(5)
                 return self._parse_response(response, address)
             except Exception as e:
@@ -138,64 +126,3 @@ class SerialDeviceController:
             except Exception as e:
                 print(f"[ERROR] write_register 0x{address:02X}: {e}")
                 return False
-
-    def verify_device(self):
-        """Проверяет код устройства"""
-        val = self.read_register(C.REG_VERIFY)
-        print(f"verify_code = {val}")
-        return val == C.VERIFY_CODE
-
-    # ------------------- Фоновый опрос -------------------
-    def start_polling(self, one_poll=False):
-        def polling_loop(one_poll=False):
-            polling_config = [
-                (C.REG_STATUS, self.status_queue),
-                (C.REG_PERIOD_M1, self.motor1_period_queue),
-                (C.REG_PERIOD_M2, self.motor2_period_queue),
-            ]
-
-            def poll():
-                try:
-                    for addr, q in polling_config:
-                        value = self.read_register(addr)
-                        if q.full():
-                            q.get()
-                        if value is not None:
-                            q.put((addr, value))
-                        time.sleep(0.005)
-                except Exception as e:
-                    print(f"[polling_loop] Ошибка: {e}")
-
-            if one_poll:
-                poll()
-                return
-
-            while self.running:
-                poll()
-                period = int((time.time() - self.start_polling_time) * 1000)
-                self.start_polling_time = time.time()
-                if self.func_calc_time:
-                    self.func_calc_time(period)
-
-        if one_poll:
-            polling_loop(one_poll=True)
-            return
-
-        if self.running:
-            self.start_polling_time = time.time()
-            return
-
-        self.running = True
-        self.start_polling_time = time.time()
-        self.t = threading.Thread(target=polling_loop, daemon=True)
-        self.t.start()
-
-    def stop_polling(self):
-        self.running = False
-        if self.t and self.t.is_alive():
-            self.t.join(timeout=1.0)
-        self.t = None
-
-
-    def init_func_time_culc(self, func):
-        self.func_calc_time = func

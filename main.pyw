@@ -3,8 +3,10 @@
 import json
 import sys
 from pathlib import Path
-from serial_device_controller import SerialDeviceController
-from gui import DeviceGUI
+from src.device.serial_device_controller import SerialDeviceController
+from src.gui.gui import DeviceGUI
+from src.device.device_poller import DevicePoller
+from src.device.device_model import DeviceModel
 
 
 def load_config(config_path="config.json"):
@@ -36,7 +38,14 @@ def main():
         device_id=config.get("device_id", 3),
     )
 
-    app = DeviceGUI(controller, config)
+
+
+    # Создаем poller
+    poller = DevicePoller(controller, interval=0.005)
+
+    model = DeviceModel(controller, config, poller)
+
+    app = DeviceGUI(model)
 
     # перенаправим stdout/stderr в лог GUI
     class GuiOutputRedirector:
