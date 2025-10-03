@@ -250,8 +250,8 @@ class DeviceGUI:
         frame = ttk.LabelFrame(parent, text="Связь", padding="5")
         frame.pack(fill='x', pady=5)
 
-        ttk.Label(frame, textvariable=self.interval_polling).grid(row=0, column=0, padx=5, sticky='w')
-        ttk.Label(frame, textvariable=self.interval_upd_data).grid(row=0, column=1, padx=5, sticky='w')
+        ttk.Label(frame, textvariable=self.interval_polling, width=25).grid(row=0, column=0, padx=5, sticky='w')
+        ttk.Label(frame, textvariable=self.interval_upd_data, width=25).grid(row=0, column=1, padx=5, sticky='w')
 
     def _create_time_work_frame(self, parent):
         frame = ttk.LabelFrame(parent, text="Время работы", padding="5")
