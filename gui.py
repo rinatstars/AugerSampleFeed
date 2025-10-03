@@ -39,6 +39,7 @@ class DeviceGUI:
 
         self.start_time = 0
         self.end_time = None
+        self.common_time = None
 
 
 
@@ -379,6 +380,42 @@ class DeviceGUI:
         except Exception as e:
             self.append_command_log(f"Ошибка чтения: {e}")
 
+    def _check_status(self):
+        # Проверка концевиков с записью времени и направления вращения первого мотора с коррекцией скорости
+        for i, (name, var) in enumerate(self.status_vars.items()):
+            if name == "BEG_BLK" and var.get():
+                self.start_time = time.time()
+                self.end_time = None
+
+            if name == "END_BLK" and var.get() and self.end_time is None:
+                self.end_time = time.time()
+                if self.common_time is None:
+                    self.common_time = self.end_time - self.start_time
+
+            if self.common_time:
+                self.append_command_log(f'Время подачи: {round(self.common_time, 1)}')
+                self.common_time = None
+
+            if self.increase_back.get():
+                if name == "M1_BACK" and var.get():
+                    reg_addr = REGISTERS_MAP.get('SET_PERIOD_M1')
+                    self.controller.write_register(reg_addr, int(5000))
+
+                elif name == "M1_BACK":
+                    reg_addr = REGISTERS_MAP.get('SET_PERIOD_M1')
+                    MOTOR_SPEED_1 = self.config['MOTOR_SPEED_1']
+                    previous_speed = self.settings_vars['SET_PERIOD_M1'].get()
+                    previous_speed = 1 / (previous_speed / MOTOR_SPEED_1)
+                    self.controller.write_register(reg_addr, int(previous_speed))
+
+    def _update_time(self):
+        if self.end_time:
+            seconds = self.end_time - self.start_time
+            self.interval_work_auger.set(f'Время подачи пробы: {round(seconds, 1)} c')
+        else:
+            seconds = time.time() - self.start_time
+            self.interval_work_auger.set(f'Время подачи пробы: {round(seconds, 1)} c')
+
     def _update_status(self):
         """Обновляет статусные флаги"""
         while not self.controller.status_queue.empty():
@@ -387,31 +424,8 @@ class DeviceGUI:
                 for i, (name, var) in enumerate(self.status_vars.items()):
                     var.set(bool(value & (1 << i)))
 
-                    if name == "BEG_BLK" and var.get():
-                        self.start_time = time.time()
-                        self.end_time = None
-
-                    if name == "END_BLK" and var.get() and self.end_time is None:
-                        self.end_time = time.time()
-
-                    if self.increase_back.get():
-                        if name == "M1_BACK" and var.get():
-                            reg_addr = REGISTERS_MAP.get('SET_PERIOD_M1')
-                            self.controller.write_register(reg_addr, int(5000))
-
-                        elif name == "M1_BACK":
-                            reg_addr = REGISTERS_MAP.get('SET_PERIOD_M1')
-                            MOTOR_SPEED_1 = self.config['MOTOR_SPEED_1']
-                            previous_speed = self.settings_vars['SET_PERIOD_M1'].get()
-                            previous_speed = 1 / (previous_speed / MOTOR_SPEED_1)
-                            self.controller.write_register(reg_addr, int(previous_speed))
-
-            if self.end_time:
-                seconds = self.end_time - self.start_time
-                self.interval_work_auger.set(f'Время подачи пробы: {round(seconds, 1)} c')
-            else:
-                seconds = time.time() - self.start_time
-                self.interval_work_auger.set(f'Время подачи пробы: {round(seconds, 1)} c')
+            self._check_status()
+            self._update_time()
 
         while not self.controller.motor1_period_queue.empty():
             address, value = self.controller.motor1_period_queue.get()
