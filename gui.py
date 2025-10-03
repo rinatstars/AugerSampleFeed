@@ -2,7 +2,7 @@ import tkinter as tk
 import time
 import sys
 import os
-from tkinter import ttk, scrolledtext, messagebox, StringVar
+from tkinter import ttk, scrolledtext, messagebox, StringVar, BooleanVar
 import serial.tools.list_ports
 from constants import (
     REG_STATUS, REG_CONTROL, REG_VERIFY,
@@ -31,12 +31,15 @@ class DeviceGUI:
         self.interval_upd_data = StringVar(value="Обновление данных: ---мс")
         self.interval_work_auger = StringVar(value="Время подачи пробы: ---с")
         self.config = config
+
+        self.increase_back = BooleanVar(value=False)
         self._setup_ui()
         self._start_background_tasks()
         self.controller.init_func_time_culc(self._update_interval_upd_data)
 
         self.start_time = 0
         self.end_time = None
+
 
 
     def _setup_ui(self):
@@ -234,6 +237,9 @@ class DeviceGUI:
         ttk.Button(frame, text="Назад", command=lambda: self._send_command(REG_COM_M2, MOTOR_CMD_START_BACK)).grid(row=2, column=2)
         ttk.Button(frame, text="Стоп", command=lambda: self._send_command(REG_COM_M2, MOTOR_CMD_STOP)).grid(row=2, column=3)
 
+        ttk.Label(frame, text="Настройка:").grid(row=3, column=0, sticky="w")
+        ttk.Checkbutton(frame, text='Ускорить назад', variable=self.increase_back).grid(row=3, column=1)
+
     def _create_verify_frame(self, parent):
         frame = ttk.LabelFrame(parent, text="Верификация", padding=5)
         frame.pack(fill="x", pady=5)
@@ -388,6 +394,18 @@ class DeviceGUI:
                     if name == "END_BLK" and var.get() and self.end_time is None:
                         self.end_time = time.time()
 
+                    if self.increase_back.get():
+                        if name == "M1_BACK" and var.get():
+                            reg_addr = REGISTERS_MAP.get('SET_PERIOD_M1')
+                            self.controller.write_register(reg_addr, int(5000))
+
+                        elif name == "M1_BACK":
+                            reg_addr = REGISTERS_MAP.get('SET_PERIOD_M1')
+                            MOTOR_SPEED_1 = self.config['MOTOR_SPEED_1']
+                            previous_speed = self.settings_vars['SET_PERIOD_M1'].get()
+                            previous_speed = 1 / (previous_speed / MOTOR_SPEED_1)
+                            self.controller.write_register(reg_addr, int(previous_speed))
+
             if self.end_time:
                 seconds = self.end_time - self.start_time
                 self.interval_work_auger.set(f'Время подачи пробы: {round(seconds, 1)} c')
@@ -401,6 +419,7 @@ class DeviceGUI:
                 MOTOR_SPEED_1 = self.config['MOTOR_SPEED_1']
 
                 self.settings_vars["PERIOD_M1"].set(round(MOTOR_SPEED_1 / value, 2))
+
         while not self.controller.motor2_period_queue.empty():
             address, value = self.controller.motor2_period_queue.get()
             if address == REG_PERIOD_M2:
