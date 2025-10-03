@@ -30,8 +30,11 @@ class DeviceGUI:
         self.interval_polling = StringVar(value="Обновление окна: ---мс")
         self.interval_upd_data = StringVar(value="Обновление данных: ---мс")
         self.interval_work_auger = StringVar(value="Время подачи пробы: ---с")
+        self.position_massage = StringVar(value="Положение шнека: ---мм")
         self.config = config
 
+        self.interval = 0
+        self.position = 0
         self.increase_back = BooleanVar(value=False)
         self._setup_ui()
         self._start_background_tasks()
@@ -40,6 +43,8 @@ class DeviceGUI:
         self.start_time = 0
         self.end_time = None
         self.common_time = None
+
+
 
 
 
@@ -76,7 +81,7 @@ class DeviceGUI:
         # Связь
         self._create_ping_frame(left_frame)
 
-        # Связь
+        # Время
         self._create_time_work_frame(left_frame)
 
         # Журнал команд
@@ -259,6 +264,7 @@ class DeviceGUI:
         frame.pack(fill='x', pady=5)
 
         ttk.Label(frame, textvariable=self.interval_work_auger).grid(row=0, column=0, padx=5, sticky='w')
+        ttk.Label(frame, textvariable=self.position_massage).grid(row=0, column=1, padx=5, sticky='w')
 
     def _create_log_frame(self, parent):
         frame = ttk.LabelFrame(parent, text="Журнал команд", padding=5)
@@ -386,6 +392,7 @@ class DeviceGUI:
             if name == "BEG_BLK" and var.get():
                 self.start_time = time.time()
                 self.end_time = None
+                self.position = 0
 
             if name == "END_BLK" and var.get() and self.end_time is None:
                 self.end_time = time.time()
@@ -407,6 +414,17 @@ class DeviceGUI:
                     previous_speed = self.settings_vars['SET_PERIOD_M1'].get()
                     previous_speed = 1 / (previous_speed / MOTOR_SPEED_1)
                     self.controller.write_register(reg_addr, int(previous_speed))
+        self.real_position()
+
+    def real_position(self):
+
+        if self.status_vars['M1_FWD'].get():
+            self.position += self.settings_vars['PERIOD_M1'].get() * self.interval / 1000 / 60
+
+        if self.status_vars['M1_BACK'].get():
+            self.position -= self.settings_vars['PERIOD_M1'].get() * self.interval / 1000 / 60
+
+        self.position_massage.set(f'Положение шнека: {round(self.position, 2)} мм')
 
     def _update_time(self):
         if self.end_time:
@@ -443,6 +461,7 @@ class DeviceGUI:
 
     def _update_interval_upd_data(self, interval):
         self.interval_upd_data.set(f"Обновление данных: {interval}мс")
+        self.interval = interval
 
 
     def _start_background_tasks(self):
@@ -461,6 +480,7 @@ class DeviceGUI:
             self.window.after(next_interval, self._start_background_tasks)
 
     def append_command_log(self, message: str):
+
         self.command_output.insert("end", message + "\n")
         self.command_output.see("end")
 
