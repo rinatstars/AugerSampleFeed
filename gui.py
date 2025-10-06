@@ -44,16 +44,14 @@ class DeviceGUI:
         self.end_time = None
         self.common_time = None
 
-
-
-
-
     def _setup_ui(self):
         main_container = ttk.Frame(self.window, padding="10")
         main_container.pack(fill="both", expand=True)
         main_container.columnconfigure(0, weight=0)
         main_container.columnconfigure(1, weight=1)
         main_container.rowconfigure(0, weight=1)
+
+
 
         # Левая колонка
         left_frame = ttk.Frame(main_container)
@@ -86,6 +84,26 @@ class DeviceGUI:
 
         # Журнал команд
         self._create_log_frame(right_frame)
+
+        self._setup_keyboard_bindings()
+
+    def _setup_keyboard_bindings(self):
+        """Настройка обработчиков клавиатуры"""
+        # Привязываем обработчики ко всему окну
+        self.window.bind('<KeyPress>', self._on_key_press)
+        # self.window.bind('<KeyRelease>', self._on_key_release)
+
+        # Фокусируем окно, чтобы оно получало события клавиатуры
+        self.window.focus_set()
+
+    def _on_key_press(self, event):
+        """Обработка нажатия клавиш"""
+        key = event.keysym.lower()
+
+        if key == 'space' and self.controller.is_connected():
+            self._send_command(REG_CONTROL, CMD_START)
+            self.append_command_log(f"Запуск по пробелу")
+
 
     def _create_connection_frame(self, parent):
         frame = ttk.LabelFrame(parent, text="Подключение", padding=5)
@@ -373,6 +391,7 @@ class DeviceGUI:
         try:
             if self.controller.write_register(reg, value):
                 self.append_command_log(f"Отправлено: {reg=} {value=}")
+
         except Exception as e:
             self.append_command_log(f"Ошибка отправки: {e}")
 
