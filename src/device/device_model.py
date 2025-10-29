@@ -16,6 +16,8 @@ class DeviceModel:
         self.config = config
         self.command_loger = None
 
+
+
         # Храним статусы и последние значения
         self.status_flags = {}
         self._update_status_flags(0)
@@ -36,6 +38,9 @@ class DeviceModel:
         # Таймер подачи пробы
         self.start_time = 0
         self.end_time = None
+
+        # Ускоренное движение назад инициализируется как буул вар в гуе
+        self.increase_back_speed = None
 
         # подготовка очереди для непрерывного опроса
         if poller is not None:
@@ -144,6 +149,26 @@ class DeviceModel:
             self.command_loger(f"reg: {hex(C.REG_COM_M2)}, write: {hex(C.MOTOR_CMD_STOP)}")
         return self._write(C.REG_COM_M2, C.MOTOR_CMD_STOP)
 
+    def valve1_on(self):
+        if self.command_loger is not None:
+            self.command_loger(f"reg: {hex(C.REG_COM_V1)}, write: {hex(C.VALVE_CMD_ON)}")
+        return self._write(C.REG_COM_V1, C.VALVE_CMD_ON)
+
+    def valve1_off(self):
+        if self.command_loger is not None:
+            self.command_loger(f"reg: {hex(C.REG_COM_V1)}, write: {hex(C.VALVE_CMD_OFF)}")
+        return self._write(C.REG_COM_V1, C.VALVE_CMD_OFF)
+
+    def valve2_on(self):
+        if self.command_loger is not None:
+            self.command_loger(f"reg: {hex(C.REG_COM_V2)}, write: {hex(C.VALVE_CMD_ON)}")
+        return self._write(C.REG_COM_V2, C.VALVE_CMD_ON)
+
+    def valve2_off(self):
+        if self.command_loger is not None:
+            self.command_loger(f"reg: {hex(C.REG_COM_V2)}, write: {hex(C.VALVE_CMD_OFF)}")
+        return self._write(C.REG_COM_V2, C.VALVE_CMD_OFF)
+
     def verify_device(self):
         try:
             val = self._read(C.REG_VERIFY)
@@ -215,6 +240,7 @@ class DeviceModel:
         """Принимает dict name->value из GUI, конвертирует и пишет"""
         MOTOR_SPEED_1 = self.config['MOTOR_SPEED_1']
         MOTOR_SPEED_2 = self.config['MOTOR_SPEED_2']
+        self.settings_vars = settings_vars
 
         for name, value in settings_vars.items():
             reg = C.REGISTERS_MAP.get(name)
@@ -300,12 +326,34 @@ class DeviceModel:
         if self.status_flags.get("END_BLK") and self.end_time is None:
             self.end_time = time.time()
 
+        # Управление повышением скорости назад
+        self._set_back_speed()
+
+    #FIXME: not working
+    def _set_back_speed(self):
+        try:
+            if self.increase_back_speed.get() and False:
+                if self.status_flags.get("M1_BACK"):
+                    reg_addr = C.REGISTERS_MAP.get('SET_PERIOD_M1')
+                    self._write(reg_addr, int(5000))
+
+                else:
+                    reg_addr = C.REGISTERS_MAP.get('SET_PERIOD_M1')
+                    MOTOR_SPEED_1 = self.config['MOTOR_SPEED_1']
+                    previous_speed = self.settings_vars['SET_PERIOD_M1'].get()
+                    previous_speed = 1 / (previous_speed / MOTOR_SPEED_1)
+                    self._write(reg_addr, int(previous_speed))
+        except AttributeError:
+            pass
     def get_work_time(self):
         if self.end_time:
             return round(self.end_time - self.start_time, 1)
         if self.start_time:
             return round(time.time() - self.start_time, 1)
         return 0
+
+    def is_end_process(self):
+        return self.status_flags.get('M1_BACK')
 
     # ------------------- Вспомогательные -------------------
 

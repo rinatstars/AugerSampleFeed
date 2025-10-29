@@ -2,7 +2,7 @@ import tkinter as tk
 import time
 import sys
 from pathlib import Path
-from tkinter import ttk, scrolledtext, messagebox, StringVar
+from tkinter import ttk, scrolledtext, messagebox, StringVar, BooleanVar
 
 
 def resource_path(relative: str) -> str:
@@ -13,16 +13,18 @@ def resource_path(relative: str) -> str:
 
 
 class DeviceGUI:
-    def __init__(self, model):
+    def __init__(self, model, desint_model=None):
         """
         :param model: экземпляр DeviceModel
+        param desint_model: экземпляр ArduinoDesint
         """
         self.model = model
+        self.desint_model = desint_model
         self.model.init_command_loger(self.append_command_log)
 
         self.window = tk.Tk()
         self.window.title("Auger sample introduction system")
-        self.window.geometry("900x700")
+        self.window.geometry("900x950")
         icon_path = resource_path("icon.ico")
         self.window.iconbitmap(icon_path)
 
@@ -54,13 +56,33 @@ class DeviceGUI:
         right_frame.grid(row=0, column=1, sticky="nsew")
 
         self._create_connection_frame(left_frame)
+        self._create_connection_desint_frame(left_frame)
         self._create_status_frame(left_frame)
         self._create_settings_frame(left_frame)
         self._create_control_frame(left_frame)
+        self._create_desint_frame(left_frame)
         self._create_verify_frame(left_frame)
         self._create_ping_frame(left_frame)
         self._create_time_work_frame(left_frame)
         self._create_log_frame(right_frame)
+        self._setup_keyboard_bindings()
+
+    def _setup_keyboard_bindings(self):
+        """Настройка обработчиков клавиатуры"""
+        # Привязываем обработчики ко всему окну
+        self.window.bind('<KeyPress>', self._on_key_press)
+        # self.window.bind('<KeyRelease>', self._on_key_release)
+
+        # Фокусируем окно, чтобы оно получало события клавиатуры
+        self.window.focus_set()
+
+    def _on_key_press(self, event):
+        """Обработка нажатия клавиш"""
+        key = event.keysym.lower()
+
+        if key == 'space' and self.model.is_connected():
+            self.model.start_process()
+            self.append_command_log('Запуск по пробелу')
 
     def _create_connection_frame(self, parent):
         frame = ttk.LabelFrame(parent, text="Подключение", padding=5)
@@ -87,6 +109,36 @@ class DeviceGUI:
 
         self.connect_btn = ttk.Button(frame, text="Подключить", command=self._toggle_connection)
         self.connect_btn.grid(row=1, column=0, columnspan=2, padx=5)
+
+        # Кнопка найти устройство
+        find_btn = ttk.Button(frame, text="Найти устройство", command=self._find_device)
+        find_btn.grid(row=1, column=2, columnspan=3, padx=5)
+
+    def _create_connection_desint_frame(self, parent):
+        frame = ttk.LabelFrame(parent, text="Подключение дезинтегратора", padding=5)
+        frame.pack(fill="x", pady=5)
+
+        ports = self.model.list_ports()
+        if not ports:
+            ports = ["Нет портов"]
+
+        ttk.Label(frame, text="Порт:").grid(row=0, column=0, sticky="w")
+
+        self.port_var_desint = tk.StringVar(value=ports[0])
+        self.port_combo_desint = ttk.Combobox(
+            frame, textvariable=self.port_var_desint, values=ports, width=12, state="readonly"
+        )
+        self.port_combo_desint.grid(row=0, column=1, padx=2, pady=2)
+
+        refresh_btn = ttk.Button(frame, text="⟳", width=3, command=self._refresh_ports)
+        refresh_btn.grid(row=0, column=2, padx=2, sticky="w")
+
+        ttk.Label(frame, text="Baudrate:").grid(row=0, column=3, sticky="w")
+        self.baud_var_desint = tk.IntVar(value=9600)
+        ttk.Entry(frame, textvariable=self.baud_var_desint, width=8).grid(row=0, column=4, padx=2)
+
+        self.connect_btn_desint = ttk.Button(frame, text="Подключить", command=self._toggle_connection_desint)
+        self.connect_btn_desint.grid(row=1, column=0, columnspan=2, padx=5)
 
         # Кнопка найти устройство
         find_btn = ttk.Button(frame, text="Найти устройство", command=self._find_device)
@@ -149,6 +201,7 @@ class DeviceGUI:
             var_raw.trace_add("write", lambda *_,
                                               n=name: self._update_human_from_raw(n))
 
+
         ttk.Button(frame, text="Применить", command=self._apply_settings).grid(
             row=len(self.setting_vars), column=0, columnspan=2, pady=5
         )
@@ -194,7 +247,7 @@ class DeviceGUI:
         frame = ttk.LabelFrame(parent, text="Управление", padding=5)
         frame.pack(fill="x", pady=5)
 
-        ttk.Button(frame, text="СТАРТ", command=self.model.start_process).grid(row=0, column=1, padx=5)
+        ttk.Button(frame, text="СТАРТ", command=self.start_process).grid(row=0, column=1, padx=5)
         ttk.Button(frame, text="СТОП", command=self.model.stop_process).grid(row=0, column=2, padx=5)
 
         ttk.Label(frame, text="Мотор 1:").grid(row=1, column=0, sticky="w")
@@ -206,6 +259,50 @@ class DeviceGUI:
         ttk.Button(frame, text="Вперёд", command=self.model.motor2_forward).grid(row=2, column=1)
         ttk.Button(frame, text="Назад", command=self.model.motor2_backward).grid(row=2, column=2)
         ttk.Button(frame, text="Стоп", command=self.model.motor2_stop).grid(row=2, column=3)
+
+        ttk.Label(frame, text="Клапан 1:").grid(row=3, column=0, sticky="w")
+        ttk.Button(frame, text="Открыть", command=self.model.valve1_on).grid(row=3, column=1)
+        ttk.Button(frame, text="Закрыть", command=self.model.valve1_off).grid(row=3, column=2)
+
+        ttk.Label(frame, text="Клапан 2:").grid(row=4, column=0, sticky="w")
+        ttk.Button(frame, text="Открыть", command=self.model.valve2_on).grid(row=4, column=1)
+        ttk.Button(frame, text="Закрыть", command=self.model.valve2_off).grid(row=4, column=2)
+
+        self.model.increase_back_speed = BooleanVar(value=False)
+        ttk.Label(frame, text="Настройка:").grid(row=6, column=0, sticky="w")
+        ttk.Checkbutton(frame, text='Ускорить назад', variable=self.model.increase_back_speed).grid(row=6, column=1)
+
+    def start_process(self):
+        self.model.start_process()
+        if self.on_desint.get():
+            self.desint_model.send_start()
+
+    def _create_desint_frame(self, parent):
+        frame = ttk.LabelFrame(parent, text="Дезинтегратор", padding=5)
+        frame.pack(fill="x", pady=5)
+
+        ttk.Label(frame, text='Импульс:').grid(row=0, column=0, sticky="w")
+        self.var_impulse = tk.DoubleVar(value=5)
+        spin_impulse = ttk.Spinbox(frame, from_=0, to=60, increment=1,
+                                   textvariable=self.var_impulse, width=10)
+        spin_impulse.grid(row=0, column=1, sticky="w")
+
+        ttk.Label(frame, text='Частота:').grid(row=0, column=2, sticky="w")
+        self.var_frequence = tk.DoubleVar(value=15)
+        spin_frequence = ttk.Spinbox(frame, from_=0, to=60, increment=1,
+                                    textvariable=self.var_frequence, width=10)
+        spin_frequence.grid(row=0, column=3, sticky="w")
+
+        ttk.Label(frame, text="Управление:").grid(row=1, column=0, sticky="w")
+        ttk.Button(frame, text="Старт", command=self.desint_model.send_start).grid(row=1, column=1)
+        ttk.Button(frame, text="Стоп", command=self.desint_model.send_end).grid(row=1, column=2)
+        ttk.Button(frame, text="Применить", command=self.apply_desint_settings).grid(row=1, column=3)
+        self.on_desint = BooleanVar(value=False)
+
+        ttk.Checkbutton(frame, text='Включать', variable=self.on_desint).grid(row=1, column=4)
+
+    def apply_desint_settings(self):
+        self.desint_model.set_pwm(self.var_impulse.get(), self.var_frequence.get())
 
     def _create_verify_frame(self, parent):
         frame = ttk.LabelFrame(parent, text="Верификация", padding=5)
@@ -271,6 +368,18 @@ class DeviceGUI:
             else:
                 messagebox.showerror("Ошибка", "Не удалось подключиться")
 
+    def _toggle_connection_desint(self):
+        if self.desint_model:
+            if self.desint_model.is_connected:
+                self.desint_model.disconnect()
+                self.append_command_log("Отключено")
+                self.connect_btn_desint.config(text="Подключить")
+            else:
+                if self.desint_model.connect(self.port_var_desint, self.baud_var_desint):
+                    self.append_command_log(f"Подключено дезинтегратор: {self.port_var_desint.get()} @ "
+                                            f"{self.baud_var_desint.get()}")
+                self.connect_btn_desint.config(text="Отключить")
+
     def _apply_settings(self):
         self.model.apply_settings(self.setting_vars)
         # for name, var in self.setting_vars.items():
@@ -296,6 +405,10 @@ class DeviceGUI:
         work_time = self.model.get_work_time()
         if work_time is not None:
             self.interval_work_auger.set(f"Время подачи пробы: {round(work_time, 1)} c")
+
+        if self.desint_model and self.desint_model.is_connected and self.desint_model.is_running:
+            if self.model.is_end_process():
+                self.desint_model.send_end()
 
     def _update_interval_upd_data(self, interval):
         self.interval_upd_data.set(f"Обновление данных: {interval}мс")

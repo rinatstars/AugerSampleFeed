@@ -7,6 +7,7 @@ from src.device.serial_device_controller import SerialDeviceController
 from src.gui.gui import DeviceGUI
 from src.device.device_poller import DevicePoller
 from src.device.device_model import DeviceModel
+from src.device.Desint_controller import ArduinoDesint
 
 
 def load_config(config_path="config.json"):
@@ -45,7 +46,9 @@ def main():
 
     model = DeviceModel(controller, config, poller)
 
-    app = DeviceGUI(model)
+    desint = ArduinoDesint()
+
+    app = DeviceGUI(model, desint)
 
     # перенаправим stdout/stderr в лог GUI
     class GuiOutputRedirector:
