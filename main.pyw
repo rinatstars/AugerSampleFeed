@@ -2,11 +2,13 @@
 
 import json
 import sys
+import queue
 from pathlib import Path
 from src.device.serial_device_controller import SerialDeviceController
 from src.gui.gui import DeviceGUI
 from src.device.device_poller import DevicePoller
 from src.device.device_model import DeviceModel
+from src.fireballProxy.fireballProxy import FireballProxy
 
 
 def load_config(config_path="config.json"):
@@ -38,14 +40,37 @@ def main():
         device_id=config.get("device_id", 3),
     )
 
-
-
     # Создаем poller
     poller = DevicePoller(controller, interval=0.005)
 
     model = DeviceModel(controller, config, poller)
 
     app = DeviceGUI(model)
+
+    # очередь для команд из FireballProxy
+    cmd_queue = queue.Queue()
+
+    # инициализация прокси
+    proxy = FireballProxy(
+        claim_class="TDForm",
+        claim_name="Генератор тока",
+        forward_name="Генератор токла",
+        command_queue=cmd_queue,
+    )
+    proxy.start()
+
+    # функция обработки команд из очереди
+    def process_commands():
+        while not cmd_queue.empty():
+            cmd = cmd_queue.get_nowait()
+            if cmd == "START":
+                model.start_process()
+            elif cmd == "STOP":
+                model.stop_process()
+        app.window.after(100, process_commands)
+
+    # запуск цикла обработки команд
+    app.window.after(100, process_commands)
 
     # перенаправим stdout/stderr в лог GUI
     class GuiOutputRedirector:
