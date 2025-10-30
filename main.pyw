@@ -9,6 +9,7 @@ from src.gui.gui import DeviceGUI
 from src.device.device_poller import DevicePoller
 from src.device.device_model import DeviceModel
 from src.fireballProxy.fireballProxy import FireballProxy
+from src.device.Desint_controller import ArduinoDesint
 
 
 def load_config(config_path="config.json"):
@@ -45,7 +46,9 @@ def main():
 
     model = DeviceModel(controller, config, poller)
 
-    app = DeviceGUI(model)
+    desint = ArduinoDesint()
+
+    app = DeviceGUI(model, desint)
 
     # очередь для команд из FireballProxy
     cmd_queue = queue.Queue()
@@ -64,7 +67,7 @@ def main():
         while not cmd_queue.empty():
             cmd = cmd_queue.get_nowait()
             if cmd == "START":
-                model.start_process()
+                app.start_process()
             elif cmd == "STOP":
                 model.stop_process()
         app.window.after(100, process_commands)
