@@ -349,8 +349,10 @@ class DeviceGUI:
         if not ports:
             ports = ["Нет портов"]
         self.port_combo["values"] = ports
+        self.port_combo_desint["values"] = ports
         if ports:
             self.port_var.set(ports[0])
+            self.port_var_desint.set(ports[0])
 
     def _find_device(self):
         port = self.model.find_device()
