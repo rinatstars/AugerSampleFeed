@@ -3,6 +3,7 @@ import time
 import sys
 from pathlib import Path
 from tkinter import ttk, scrolledtext, messagebox, StringVar, BooleanVar
+from src.device.device_model import DeviceModel
 
 
 def resource_path(relative: str) -> str:
@@ -18,7 +19,7 @@ class DeviceGUI:
         :param model: экземпляр DeviceModel
         param desint_model: экземпляр ArduinoDesint
         """
-        self.model = model
+        self.model: DeviceModel = model
         self.desint_model = desint_model
         self.model.init_command_loger(self.append_command_log)
 
@@ -278,7 +279,7 @@ class DeviceGUI:
             self.desint_model.send_start()
 
     def stop_process(self):
-        self.model.start_process()
+        self.model.stop_process()
         if self.on_desint.get():
             self.desint_model.send_end()
 
@@ -377,7 +378,7 @@ class DeviceGUI:
 
     def _toggle_connection_desint(self):
         if self.desint_model:
-            if self.desint_model.is_connected:
+            if self.desint_model.is_connected():
                 self.desint_model.disconnect()
                 self.append_command_log("Отключено")
                 self.connect_btn_desint.config(text="Подключить")
@@ -413,7 +414,7 @@ class DeviceGUI:
         if work_time is not None:
             self.interval_work_auger.set(f"Время подачи пробы: {round(work_time, 1)} c")
 
-        if self.desint_model and self.desint_model.is_connected and self.desint_model.is_running:
+        if self.desint_model and self.desint_model.is_connected() and self.desint_model.is_running:
             if self.model.is_end_process():
                 self.desint_model.send_end()
 

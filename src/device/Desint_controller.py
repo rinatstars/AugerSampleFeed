@@ -9,7 +9,6 @@ class ArduinoDesint:
         self.baudrate = baudrate
         self.ser = None
         self.lock = threading.Lock()
-        self.is_connected = False
         self.is_running = False
 
     def connect(self, port=None, baudrate=9600):
@@ -22,11 +21,14 @@ class ArduinoDesint:
             response = self.ser.readline().decode().strip()
             if response:
                 print(f"Arduino: {response}")
-            self.is_connected = True
             return True
         except serial.SerialException as e:
             print(f"Ошибка подключения: {e}")
             return False
+
+    def is_connected(self):
+        """Проверка состояния соединения"""
+        return self.ser is not None and self.ser.is_open
 
     def set_pwm(self, timeon, frequence):
         """
@@ -48,38 +50,58 @@ class ArduinoDesint:
         return self.set_parameters(timeon, timeoff)
 
     def set_parameters(self, timeon, timeoff):
-        command = f"PWM:{timeon}|{timeoff}\n"
-        print(command)
-        self.ser.write(command.encode())
-        response = self.ser.readline().decode().strip()
-        if response:
-            trash, timeon = response.split(':')
-            print(response)
-        response = self.ser.readline().decode().strip()
-        if response:
-            trash, timeoff = response.split(':')
-            print(response)
-        return timeon, timeoff
+        with self.lock:
+            if not self.is_connected():
+                return None
+            try:
+                command = f"PWM:{timeon}|{timeoff}\n"
+                print(command)
+                self.ser.write(command.encode())
+                response = self.ser.readline().decode().strip()
+                if response:
+                    trash, timeon = response.split(':')
+                    print(response)
+                response = self.ser.readline().decode().strip()
+                if response:
+                    trash, timeoff = response.split(':')
+                    print(response)
+                return timeon, timeoff
+            except Exception as e:
+                print(f"[ERROR] set_parameters desint: {e}")
+                return None
 
     def send_start(self):
-        command = f"COMAND:1\n"
-        self.ser.write(command.encode())
-        self.is_running = True
-        response = self.ser.readline().decode().strip()
-        if response:
-            print(response)
-            return True
+        with self.lock:
+            if not self.is_connected():
+                return None
+            try:
+                command = f"COMAND:1\n"
+                self.ser.write(command.encode())
+                self.is_running = True
+                response = self.ser.readline().decode().strip()
+                if response:
+                    print(response)
+                    return True
+            except Exception as e:
+                print(f"[ERROR] send_start desint: {e}")
+                return None
 
     def send_end(self):
-        command = f"COMAND:0\n"
-        self.ser.write(command.encode())
-        self.is_running = False
-        response = self.ser.readline().decode().strip()
-        if response:
-            print(response)
+        with self.lock:
+            if not self.is_connected():
+                return None
+            try:
+                command = f"COMAND:0\n"
+                self.ser.write(command.encode())
+                self.is_running = False
+                response = self.ser.readline().decode().strip()
+                if response:
+                    print(response)
+            except Exception as e:
+                print(f"[ERROR] send_end desint: {e}")
+                return None
 
     def disconnect(self):
         if self.ser and self.ser.is_open:
-            self.is_connected = False
             self.ser.close()
             print("Соединение закрыто")
