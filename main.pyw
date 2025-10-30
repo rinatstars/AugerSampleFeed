@@ -69,7 +69,7 @@ def main():
             if cmd == "START":
                 app.start_process()
             elif cmd == "STOP":
-                model.stop_process()
+                app.stop_process()
         app.window.after(100, process_commands)
 
     # запуск цикла обработки команд

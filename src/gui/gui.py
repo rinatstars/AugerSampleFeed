@@ -248,7 +248,7 @@ class DeviceGUI:
         frame.pack(fill="x", pady=5)
 
         ttk.Button(frame, text="СТАРТ", command=self.start_process).grid(row=0, column=1, padx=5)
-        ttk.Button(frame, text="СТОП", command=self.model.stop_process).grid(row=0, column=2, padx=5)
+        ttk.Button(frame, text="СТОП", command=self.stop_process).grid(row=0, column=2, padx=5)
 
         ttk.Label(frame, text="Мотор 1:").grid(row=1, column=0, sticky="w")
         ttk.Button(frame, text="Вперёд", command=self.model.motor1_forward).grid(row=1, column=1)
@@ -276,6 +276,11 @@ class DeviceGUI:
         self.model.start_process()
         if self.on_desint.get():
             self.desint_model.send_start()
+
+    def stop_process(self):
+        self.model.start_process()
+        if self.on_desint.get():
+            self.desint_model.send_end()
 
     def _create_desint_frame(self, parent):
         frame = ttk.LabelFrame(parent, text="Дезинтегратор", padding=5)
