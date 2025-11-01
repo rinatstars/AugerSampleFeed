@@ -110,7 +110,7 @@ def build():
 
     # Собираем по .spec
     subprocess.run(
-        [os.path.join("venv", "Scripts", "python.exe"), "-m", "PyInstaller", SPEC_FILE],
+        [os.path.join(".venv", "Scripts", "python.exe"), "-m", "PyInstaller", SPEC_FILE],
         check=True
     )
 

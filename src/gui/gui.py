@@ -248,8 +248,11 @@ class DeviceGUI:
         frame = ttk.LabelFrame(parent, text="Управление", padding=5)
         frame.pack(fill="x", pady=5)
 
-        ttk.Button(frame, text="СТАРТ", command=self.start_process).grid(row=0, column=1, padx=5)
-        ttk.Button(frame, text="СТОП", command=self.stop_process).grid(row=0, column=2, padx=5)
+        ttk.Button(frame, text="СТАРТ", command=self.start_process).grid(row=0, column=0, padx=5)
+
+        ttk.Label(frame, text="Ручн.:").grid(row=0, column=1, sticky="w")
+        ttk.Button(frame, text="СТАРТ", command=self.start_process_manual).grid(row=0, column=2, padx=5)
+        ttk.Button(frame, text="СТОП", command=self.stop_process_manual).grid(row=0, column=3, padx=5)
 
         ttk.Label(frame, text="Мотор 1:").grid(row=1, column=0, sticky="w")
         ttk.Button(frame, text="Вперёд", command=self.model.motor1_forward).grid(row=1, column=1)
@@ -270,16 +273,37 @@ class DeviceGUI:
         ttk.Button(frame, text="Закрыть", command=self.model.valve2_off).grid(row=4, column=2)
 
         self.model.increase_back_speed = BooleanVar(value=False)
+        self.model.manual = BooleanVar(value=False)
         ttk.Label(frame, text="Настройка:").grid(row=6, column=0, sticky="w")
         ttk.Checkbutton(frame, text='Ускорить назад', variable=self.model.increase_back_speed).grid(row=6, column=1)
+        ttk.Checkbutton(frame, text='Ручной старт', variable=self.model.manual).grid(row=6, column=2)
 
     def start_process(self):
+        if self.model.manual.get():
+            self.start_process_manual()
+            return
         self.model.start_process()
         if self.on_desint.get():
             self.desint_model.send_start()
 
     def stop_process(self):
+        if self.model.manual.get():
+            self.stop_process_manual()
+            return
         self.model.stop_process()
+        if self.on_desint.get():
+            self.desint_model.send_end()
+
+    def start_process_manual(self):
+
+        self.model.start_process_manual_init()
+
+        if self.on_desint.get():
+            self.desint_model.send_start()
+
+    def stop_process_manual(self):
+        self.model.stop_process_manual()
+
         if self.on_desint.get():
             self.desint_model.send_end()
 

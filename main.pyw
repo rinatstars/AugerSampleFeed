@@ -8,7 +8,7 @@ from src.device.serial_device_controller import SerialDeviceController
 from src.gui.gui import DeviceGUI
 from src.device.device_poller import DevicePoller
 from src.device.device_model import DeviceModel
-from src.fireballProxy.fireballProxy import FireballProxy
+from src.fireballProxy.fireballProxy_ import FireballProxy
 from src.device.Desint_controller import ArduinoDesint
 
 
