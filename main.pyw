@@ -8,7 +8,7 @@ from src.device.serial_device_controller import SerialDeviceController
 from src.gui.gui import DeviceGUI
 from src.device.device_poller import DevicePoller
 from src.device.device_model import DeviceModel
-from src.fireballProxy.fireballProxy_ import FireballProxy
+from src.fireballProxy.fireballProxy import FireballProxy
 from src.device.Desint_controller import ArduinoDesint
 
 
@@ -43,10 +43,8 @@ def main():
 
     # Создаем poller
     poller = DevicePoller(controller, interval=0.005)
-
-    model = DeviceModel(controller, config, poller)
-
     desint = ArduinoDesint()
+    model = DeviceModel(controller, config, poller, desint)
 
     app = DeviceGUI(model, desint)
 
@@ -59,6 +57,8 @@ def main():
         claim_name="Генератор тока",
         forward_name="Генератор токла",
         command_queue=cmd_queue,
+        model=model,
+        desint_model=desint
     )
     proxy.start()
 

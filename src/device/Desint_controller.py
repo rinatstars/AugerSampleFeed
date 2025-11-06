@@ -10,10 +10,14 @@ class ArduinoDesint:
         self.ser = None
         self.lock = threading.Lock()
         self.is_running = False
+        self.timeon = None
+        self.frequence = None
 
-    def connect(self, port=None, baudrate=9600):
+    def connect(self, port=None, baudrate=None):
         if port:
             self.port = port.get()
+        if baudrate:
+            self.baudrate = baudrate.get()
         try:
             self.ser = serial.Serial(self.port, self.baudrate, timeout=1)
 
@@ -34,6 +38,9 @@ class ArduinoDesint:
         """
         Установка скважности ШИМ в процентах для указанного пина
         """
+        self.timeon = timeon
+        self.frequence = frequence
+
         if not self.ser or not self.ser.is_open:
             print("Нет соединения с Arduino")
             return False
@@ -98,7 +105,18 @@ class ArduinoDesint:
                 if response:
                     print(response)
             except Exception as e:
-                print(f"[ERROR] send_end desint: {e}")
+                print(f"Attempt reconnected: {e}")
+                self.disconnect()
+                self.connect()
+                time.sleep(1)
+                command = f"COMAND:0\n"
+                self.ser.write(command.encode())
+                self.is_running = False
+                response = self.ser.readline().decode().strip()
+                if response:
+                    print(response)
+                else:
+                    print('[Error] send_end')
                 return None
 
     def disconnect(self):

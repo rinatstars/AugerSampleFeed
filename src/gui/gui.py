@@ -296,10 +296,7 @@ class DeviceGUI:
 
     def start_process_manual(self):
 
-        self.model.start_process_manual_init()
-
-        if self.on_desint.get():
-            self.desint_model.send_start()
+        self.model.start_process_manual_init(self.on_desint.get())
 
     def stop_process_manual(self):
         self.model.stop_process_manual()

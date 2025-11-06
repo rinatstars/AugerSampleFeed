@@ -18,6 +18,12 @@ from queue import Queue
 import win32gui
 import win32con
 import win32api
+import ctypes
+from ctypes import wintypes
+import xml.etree.ElementTree as ET
+from src.device.device_model import DeviceModel
+from src.device.Desint_controller import ArduinoDesint
+import os
 
 # FIXME логер может не работать, закоментил
 #  Настройка логгера
@@ -52,6 +58,29 @@ DEFAULT_RESPONSES: Dict[int, int] = {
     WM_FIREBALL_GET_GRAPHICS: 0,
 }
 
+# типы WinAPI
+LPVOID = ctypes.c_void_p
+HANDLE = ctypes.c_void_p
+DWORD = ctypes.c_uint32
+LPCWSTR = ctypes.c_wchar_p
+
+kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+
+# прототипы WinAPI функций
+kernel32.OpenFileMappingW.argtypes = [DWORD, wintypes.BOOL, LPCWSTR]
+kernel32.OpenFileMappingW.restype = HANDLE
+
+kernel32.MapViewOfFile.argtypes = [HANDLE, DWORD, DWORD, DWORD, ctypes.c_size_t]
+kernel32.MapViewOfFile.restype = LPVOID
+
+kernel32.UnmapViewOfFile.argtypes = [LPVOID]
+kernel32.UnmapViewOfFile.restype = wintypes.BOOL
+
+kernel32.CloseHandle.argtypes = [HANDLE]
+kernel32.CloseHandle.restype = wintypes.BOOL
+
+FILE_MAP_ALL_ACCESS = 0xF001F
+PAGE_READWRITE = 0x04
 
 class FireballProxy:
     """Прокси сообщений между Атомом и Генератором тока."""
@@ -64,6 +93,8 @@ class FireballProxy:
         command_queue: Queue,
         send_timeout_ms: int = 5000,
         find_interval_sec: float = 1.0,
+        model: Optional[DeviceModel] = None,
+        desint_model: Optional[ArduinoDesint] = None,
     ):
         self.claim_class = claim_class
         self.claim_name = claim_name
@@ -78,6 +109,9 @@ class FireballProxy:
         self._running = False
         self._pump_thread: Optional[threading.Thread] = None
         self._reg_lock = threading.Lock()
+
+        self.model = model
+        self.desint_model = desint_model
 
         # logger.debug("FireballProxy инициализирован (mask='%s', forward='%s')", claim_name, forward_name)
 
@@ -157,39 +191,52 @@ class FireballProxy:
         """Обработчик сообщений (только ставит команды в очередь)."""
         try:
             if WM_USER <= msg < WM_USER + 1000:
-                # logger.debug("Получено сообщение msg=0x%X w=%s l=%s", msg, wparam, lparam)
+                # --- перехват XML ---
+                if msg == WM_FIREBALL_GET_XML:
+                    # 1. Пересылаем команду реальному Fireball
+                    res = self._forward_message(msg, wparam, lparam)
 
-                # --- перехват команд ---
+                    # 2. Читаем свежий XML из общей памяти FireBall
+                    xml_text = self._read_shared_xml()
+
+                    if xml_text:
+                        # --- обновляем XML ---
+                        updated_xml = self._update_xml_with_auger_data(xml_text)
+                        self._write_to_shared_memory(updated_xml, "FireBall_Settigs")
+                        print("[FireballProxy] XML успешно подменён в FireBall_Settigs")
+
+                        # 4. Для отладки сохраняем копию
+                        filename = os.path.join(os.getcwd(), "fireball_xml_dump.xml")
+                        with open(filename, "w", encoding="utf-8") as f:
+                            f.write(updated_xml)
+                        print(f"[FireballProxy] XML сохранён: {filename}")
+
+                    if res is None:
+                        res = DEFAULT_RESPONSES.get(msg, 0)
+                    return int(res)
+
+                # --- перехват команд START/STOP ---
                 if msg == WM_FIREBALL_START:
-                    # logger.info("Перехвачен START")
                     self.command_queue.put("START")
                 elif msg == WM_FIREBALL_STOP:
-                    # logger.info("Перехвачен STOP")
                     self.command_queue.put("STOP")
 
-                # --- пересылаем в реальное окно ---
+                # --- пересылаем сообщение в реальное окно ---
                 res = self._forward_message(msg, wparam, lparam)
                 if res is None:
                     res = DEFAULT_RESPONSES.get(msg, 0)
-                    # logger.debug("Ответ по умолчанию для msg=0x%X: %s", msg, res)
-                else:
-                    # logger.debug("Ответ от целевого окна msg=0x%X: %s", msg, res)
-                    pass
                 return int(res)
 
             if msg == win32con.WM_CLOSE:
-                # logger.debug("Получено WM_CLOSE — уничтожаю окно.")
                 win32gui.DestroyWindow(hwnd)
                 return 0
             if msg == win32con.WM_DESTROY:
-                # logger.debug("Получено WM_DESTROY — завершаю поток сообщений.")
                 win32gui.PostQuitMessage(0)
                 return 0
 
             return win32gui.DefWindowProc(hwnd, msg, wparam, lparam)
-
         except Exception as e:
-            # logger.error("wndproc error: %s", e)
+            print(f"[FireballProxy] wnd_proc error: {e}")
             return 0
 
     def _find_target(self, force=False) -> Optional[int]:
@@ -237,3 +284,101 @@ class FireballProxy:
             # logger.error("Ошибка при пересылке сообщения 0x%X: %s", msg, e)
             self._target_hwnd = None
             return None
+
+    def _read_shared_xml(self) -> Optional[str]:
+        """Прочитать XML из общей памяти 'FireBall_Settigs'."""
+        FILE_MAP_READ = 0x0004
+        mapping_name = "FireBall_Settigs"
+
+        hMap = kernel32.OpenFileMappingW(FILE_MAP_READ, False, mapping_name)
+        if not hMap:
+            return None
+
+        pBuf = kernel32.MapViewOfFile(hMap, FILE_MAP_READ, 0, 0, 0)
+        if not pBuf:
+            kernel32.CloseHandle(hMap)
+            return None
+
+        try:
+            # безопасное чтение длины
+            length_ptr = ctypes.cast(pBuf, ctypes.POINTER(ctypes.c_int))
+            length = length_ptr.contents.value
+
+            if length <= 0 or length > 1_000_000:
+                print(f"[FireballProxy] Недопустимая длина XML: {length}")
+                return None
+
+            # читаем строку UTF-16LE начиная с offset=8
+            bstr_ptr = ctypes.c_void_p(pBuf + 8)
+            xml_data = ctypes.wstring_at(bstr_ptr, length)
+            return xml_data
+
+        except Exception as e:
+            print(f"[FireballProxy] Ошибка при чтении XML: {e}")
+            return None
+
+        finally:
+            try:
+                kernel32.UnmapViewOfFile(pBuf)
+            except Exception:
+                pass
+            try:
+                kernel32.CloseHandle(hMap)
+            except Exception:
+                pass
+
+    def _write_to_shared_memory(self, xml_text: str, map_name="FireBall_Settigs"):
+        """Перезаписать XML в существующий FileMapping FireBall."""
+        data = xml_text.encode("utf-16le")  # FireBall использует BSTR (UTF-16)
+        length = len(data) // 2  # длина в wchar_t
+        header = (ctypes.c_int * 2)(length, 0)  # FireBall хранит длину + резерв 4 байта
+
+        total_size = 8 + len(data)
+        hMap = kernel32.OpenFileMappingW(FILE_MAP_ALL_ACCESS, False, map_name)
+        if not hMap:
+            raise OSError(f"Не удалось открыть FileMapping '{map_name}'")
+
+        pBuf = kernel32.MapViewOfFile(hMap, FILE_MAP_ALL_ACCESS, 0, 0, total_size)
+        if not pBuf:
+            kernel32.CloseHandle(hMap)
+            raise OSError("Не удалось спроецировать память FireBall_Settigs")
+
+        try:
+            # Копируем заголовок и данные (len + 4 пустых байта + XML в UTF-16)
+            ctypes.memmove(pBuf, ctypes.byref(header), 8)
+            ctypes.memmove(pBuf + 8, data, len(data))
+        finally:
+            kernel32.UnmapViewOfFile(pBuf)
+            kernel32.CloseHandle(hMap)
+
+        print(f"[FireballProxy] XML обновлён в FireBall_Settigs ({len(data)} байт)")
+
+    def _update_xml_with_auger_data(self, xml_text: str) -> str:
+        """Добавить данные Auger в существующий XML FireBall."""
+
+        try:
+            root = ET.fromstring(xml_text)
+
+            # Добавляем новые поля
+            intr_system = ET.SubElement(root, "Auger_sample_introduction_system")
+
+            if self.model is not None:
+                s = self.model.settings_vars
+                if len(s):
+                    ET.SubElement(intr_system, "PERIOD_M1").text = str(s.get('SET_PERIOD_M1').get())
+                    ET.SubElement(intr_system, "PERIOD_M2").text = str(s.get('SET_PERIOD_M2').get())
+                    ET.SubElement(intr_system, "T_START").text = str(s.get('T_START').get())
+                    ET.SubElement(intr_system, "T_GRIND").text = str(s.get('T_GRIND').get())
+                    ET.SubElement(intr_system, "T_PURGING").text = str(s.get('T_PURGING').get())
+
+            if self.desint_model is not None:
+                # Дезинтегратор
+                desint = ET.SubElement(root, "desint")
+                ET.SubElement(desint, "frequence").text = f"{self.desint_model.frequence}"
+                ET.SubElement(desint, "timeon").text = f"{self.desint_model.timeon}"
+
+            return ET.tostring(root, encoding="utf-8").decode("utf-8")
+
+        except Exception as e:
+            print(f"[FireballProxy] Ошибка при обновлении XML: {e}")
+            return xml_text

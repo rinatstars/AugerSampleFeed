@@ -5,7 +5,7 @@ import src.constants as C
 
 
 class DeviceModel:
-    def __init__(self, controller, config, poller=None):
+    def __init__(self, controller, config, poller=None, desint=None):
         """
         :param controller: SerialDeviceController
         :param config: кортеж с настройками устройства и коэфф. пересчета
@@ -14,6 +14,8 @@ class DeviceModel:
         self.controller = controller
         self.poller = poller
         self.config = config
+        self.desint = desint
+        self.on_desint = False
         self.command_loger = None
 
         self.manual = None
@@ -123,13 +125,17 @@ class DeviceModel:
             self.command_loger(f"reg: {hex(C.REG_CONTROL)}, write: {hex(C.CMD_NULL)}")
         return self._write(C.REG_CONTROL, C.CMD_NULL)
 
-    def start_process_manual_init(self):
+    def start_process_manual_init(self, on_desint=False):
         self.manual_start = True
         self.manual_start_time = time.time()
+        self.on_desint = on_desint
 
     def start_process_manual(self):
+        self.manual_start = False
         self.motor1_forward()
         self.motor2_forward()
+        if self.on_desint:
+            self.desint.send_start()
 
     def stop_process_manual(self):
         if not self.is_end_process():
