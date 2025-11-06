@@ -5,7 +5,7 @@ import src.constants as C
 
 
 class DeviceModel:
-    def __init__(self, controller, config, poller=None):
+    def __init__(self, controller, config, poller=None, desint=None):
         """
         :param controller: SerialDeviceController
         :param config: кортеж с настройками устройства и коэфф. пересчета
@@ -14,8 +14,13 @@ class DeviceModel:
         self.controller = controller
         self.poller = poller
         self.config = config
+        self.desint = desint
+        self.on_desint = False
         self.command_loger = None
 
+        self.manual = None
+        self.manual_start = False
+        self.manual_start_time = time.time()
 
 
         # Храним статусы и последние значения
@@ -41,13 +46,14 @@ class DeviceModel:
 
         # Ускоренное движение назад инициализируется как буул вар в гуе
         self.increase_back_speed = None
+        self.m1_back = False
+
+
 
         # подготовка очереди для непрерывного опроса
         if poller is not None:
             self._init_poller_queue()
             self.poller.init_func_calc_update_from_poller(self.update_from_poller)
-
-
 
     def _init_poller_queue(self):
         # Подготавливаем очереди для данных
@@ -118,6 +124,23 @@ class DeviceModel:
         if self.command_loger is not None:
             self.command_loger(f"reg: {hex(C.REG_CONTROL)}, write: {hex(C.CMD_NULL)}")
         return self._write(C.REG_CONTROL, C.CMD_NULL)
+
+    def start_process_manual_init(self, on_desint=False):
+        self.manual_start = True
+        self.manual_start_time = time.time()
+        self.on_desint = on_desint
+
+    def start_process_manual(self):
+        self.manual_start = False
+        self.motor1_forward()
+        self.motor2_forward()
+        if self.on_desint:
+            self.desint.send_start()
+
+    def stop_process_manual(self):
+        if not self.is_end_process():
+            self.motor1_stop()
+            self.motor2_stop()
 
     def motor1_forward(self):
         if self.command_loger is not None:
@@ -310,7 +333,6 @@ class DeviceModel:
                     elif addr == C.REG_PERIOD_M2:
                         self.last_motor_period["PERIOD_M2"] = val
 
-
     def _update_status_flags(self, value: int):
         bits = [
             "START", "BEG_BLK", "END_BLK", "M1_FWD", "M1_BACK",
@@ -329,20 +351,36 @@ class DeviceModel:
         # Управление повышением скорости назад
         self._set_back_speed()
 
-    #FIXME: not working
+        if self.manual and self.is_end_blk() and not self.is_end_process():
+            self.motor2_forward()
+            self.motor1_backward()
+
+        if self.is_beg_blk() and self.is_m2_run() and not self.is_m1_run():
+            self.motor2_stop()
+
+        if self.manual_start:
+            delay_time = (time.time() - self.manual_start_time) * 1000
+            start_time = self.settings_vars.get('T_START')
+            if start_time is None:
+                self.apply_settings(self.read_settings(self.settings))
+                start_time = self.settings_vars.get('T_START')
+
+            start_time = start_time.get()
+
+            if delay_time >= start_time:
+                self.manual_start = False
+                self.start_process_manual()
+
     def _set_back_speed(self):
         try:
-            if self.increase_back_speed.get() and False:
-                if self.status_flags.get("M1_BACK"):
+            if self.increase_back_speed.get():
+                if self.status_flags.get("M1_BACK") and not self.m1_back:
                     reg_addr = C.REGISTERS_MAP.get('SET_PERIOD_M1')
                     self._write(reg_addr, int(5000))
-
-                else:
-                    reg_addr = C.REGISTERS_MAP.get('SET_PERIOD_M1')
-                    MOTOR_SPEED_1 = self.config['MOTOR_SPEED_1']
-                    previous_speed = self.settings_vars['SET_PERIOD_M1'].get()
-                    previous_speed = 1 / (previous_speed / MOTOR_SPEED_1)
-                    self._write(reg_addr, int(previous_speed))
+                    self.m1_back = True
+                elif self.m1_back and self.is_beg_blk():
+                    self.apply_settings(self.settings_vars)
+                    self.m1_back = False
         except AttributeError:
             pass
     def get_work_time(self):
@@ -354,6 +392,18 @@ class DeviceModel:
 
     def is_end_process(self):
         return self.status_flags.get('M1_BACK')
+
+    def is_end_blk(self):
+        return self.status_flags.get('END_BLK')
+
+    def is_beg_blk(self):
+        return self.status_flags.get('BEG_BLK')
+
+    def is_m2_run(self):
+        return self.status_flags.get('M2_FWD') or self.status_flags.get('M2_BACK')
+
+    def is_m1_run(self):
+        return self.status_flags.get('M1_FWD') or self.status_flags.get('M1_BACK')
 
     # ------------------- Вспомогательные -------------------
 

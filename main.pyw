@@ -43,10 +43,8 @@ def main():
 
     # Создаем poller
     poller = DevicePoller(controller, interval=0.005)
-
-    model = DeviceModel(controller, config, poller)
-
     desint = ArduinoDesint()
+    model = DeviceModel(controller, config, poller, desint)
 
     app = DeviceGUI(model, desint)
 
@@ -59,6 +57,8 @@ def main():
         claim_name="Генератор тока",
         forward_name="Генератор токла",
         command_queue=cmd_queue,
+        model=model,
+        desint_model=desint
     )
     proxy.start()
 
