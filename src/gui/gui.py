@@ -19,6 +19,7 @@ class DeviceGUI:
         :param model: экземпляр DeviceModel
         param desint_model: экземпляр ArduinoDesint
         """
+        self.comand_loger_queue = []
         self.model: DeviceModel = model
         self.desint_model = desint_model
         self.model.init_command_loger(self.append_command_log)
@@ -454,6 +455,7 @@ class DeviceGUI:
         self._update_status()
         self.model.increase_back_speed = self.increase_back_speed.get()
         self.model.manual = self.manual.get()
+        self.append_command_log_queue()
 
         processing_time = time.time() - start_time
         next_interval = max(2, int(processing_time * 1000 * 1.1))
@@ -465,11 +467,16 @@ class DeviceGUI:
             self.stop_process()
 
     def append_command_log(self, message: str, msg_type="info"):
-        self.command_output.insert("end", message + "\n")
-        self.command_output.see("end")
-        start_index = f"end-{len(message) + 2}c"  # +1 для символа новой строки
-        end_index = "end-1c"
-        self.command_output.tag_add(msg_type, start_index, end_index)
+        self.comand_loger_queue.append([message, msg_type])
+
+    def append_command_log_queue(self):
+        for message, msg_type in self.comand_loger_queue:
+            self.command_output.insert("end", message + "\n")
+            self.command_output.see("end")
+            start_index = f"end-{len(message) + 2}c"  # +1 для символа новой строки
+            end_index = "end-1c"
+            self.command_output.tag_add(msg_type, start_index, end_index)
+        self.comand_loger_queue.clear()
 
     def run(self):
         self.window.mainloop()
