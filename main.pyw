@@ -48,7 +48,6 @@ def main():
         model = DeviceModel(controller, config, poller, desint)
 
         app = DeviceGUI(model, desint)
-        print(app.__class__.__name__)
 
         # очередь для команд из FireballProxy
         cmd_queue = queue.Queue()
@@ -120,6 +119,9 @@ def main():
 
                 for attr_name, attr_value in attr:
                     dump.write(f'{attr_name}: {attr_value}')
+
+    finally:
+        poller.stop()
 
 
 if __name__ == "__main__":

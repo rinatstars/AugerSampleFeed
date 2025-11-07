@@ -354,6 +354,13 @@ class DeviceGUI:
         self.command_output = scrolledtext.ScrolledText(frame, wrap="word", state="normal")
         self.command_output.pack(fill="both", expand=True)
 
+        self.command_output.tag_config("success", foreground="green")
+        self.command_output.tag_config("error", foreground="red")
+        self.command_output.tag_config("warning", foreground="orange")
+        self.command_output.tag_config("info", foreground="black")
+        self.command_output.tag_config("command", foreground="purple")
+        self.command_output.tag_config("device", foreground="brown")
+
         def disable_typing(event):
             if (event.state & 0x4) and event.keysym in ("c", "a"):
                 return
@@ -452,10 +459,15 @@ class DeviceGUI:
 
         if self.window.winfo_exists():
             self.window.after(next_interval, self._start_background_tasks)
+        else:
+            self.stop_process()
 
-    def append_command_log(self, message: str):
+    def append_command_log(self, message: str, msg_type="info"):
         self.command_output.insert("end", message + "\n")
         self.command_output.see("end")
+        start_index = f"end-{len(message) + 2}c"  # +1 для символа новой строки
+        end_index = "end-1c"
+        self.command_output.tag_add(msg_type, start_index, end_index)
 
     def run(self):
         self.window.mainloop()

@@ -129,7 +129,7 @@ class DeviceModel:
         self.manual_start = True
         self.manual_start_time = time.time()
         self.on_desint = on_desint
-        self.command_loger(f'Старт инициализирован')
+        self.command_loger(f'Старт инициализирован', 'success')
 
     def start_process_manual(self):
         self.manual_start = False
@@ -141,7 +141,7 @@ class DeviceModel:
     def stop_process_manual(self):
         if self.manual_start:
             self.manual_start = False
-            print('Старт отменён')
+            self.command_loger(f'Старт отменён', 'warning')
 
         if not self.is_end_process():
             self.motor1_stop()
