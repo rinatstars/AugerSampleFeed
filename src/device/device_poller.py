@@ -21,8 +21,11 @@ class DevicePoller:
         self.func_calc_update_from_poller = None
         self.start_polling_time = 0
 
+        self._lock = threading.Lock()
+
     def init_polling_config(self, polling_config):
-        self.polling_config = polling_config
+        with self._lock:
+            self.polling_config = polling_config
 
     def start(self):
         if self.polling_config is not None:
@@ -43,26 +46,51 @@ class DevicePoller:
         self.thread = None
 
     def _loop(self):
+        """Основной цикл опроса с обработкой исключений GIL"""
         while self.running:
             try:
-                for addr, q in self.polling_config:
+                # Создаем локальную копию конфигурации для thread safety
+                with self._lock:
+                    current_config = self.polling_config.copy() if self.polling_config else []
+
+                for addr, q in current_config:
+                    if not self.running:  # Проверяем флаг после каждой операции
+                        break
+
+                    # Чтение регистра - здесь может возникать проблема с GIL
                     val = self.controller.read_register(addr)
-                    if val is not None:
+
+                    if val is not None and self.running:
+                        # Безопасная работа с очередью
                         if q.full():
-                            q.get()
+                            try:
+                                q.get_nowait()
+                            except:
+                                pass
                         q.put((addr, val))
+
                     time.sleep(self.interval)
 
-                # время цикла
-                period = int((time.time() - self.start_polling_time) * 1000)
-                self.start_polling_time = time.time()
-                if self.func_calc_time:
-                    self.func_calc_time(period)
-                if self.func_calc_update_from_poller:
-                    self.func_calc_update_from_poller()
+                # Вызов callback'ов - убеждаемся что они существуют
+                if self.running:
+                    period = int((time.time() - self.start_polling_time) * 1000)
+                    self.start_polling_time = time.time()
+
+                    if self.func_calc_time:
+                        try:
+                            self.func_calc_time(period)
+                        except Exception as e:
+                            print(f"[DevicePoller] Ошибка в func_calc_time: {e}")
+
+                    if self.func_calc_update_from_poller:
+                        try:
+                            self.func_calc_update_from_poller()
+                        except Exception as e:
+                            print(f"[DevicePoller] Ошибка в func_calc_update_from_poller: {e}")
 
             except Exception as e:
-                print(f"[DevicePoller] Ошибка: {e}")
+                print(f"[DevicePoller] Критическая ошибка: {e}")
+                time.sleep(0.1)  # Задержка при критических ошибках
 
     def init_func_time_calc(self, func):
         """Передаём callback для отчёта времени цикла"""
