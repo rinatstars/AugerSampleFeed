@@ -51,8 +51,7 @@ class DevicePoller:
                         if q.full():
                             q.get()
                         q.put((addr, val))
-                    with threading.Lock:
-                        time.sleep(self.interval)
+                    time.sleep(self.interval)
 
                 # время цикла
                 period = int((time.time() - self.start_polling_time) * 1000)
