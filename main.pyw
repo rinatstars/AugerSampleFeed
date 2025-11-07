@@ -22,80 +22,104 @@ def load_config(config_path="config.json"):
 
 
 def main():
-    """Точка входа в приложение"""
     try:
-        config = load_config()
-    except FileNotFoundError:
-        # дефолтные настройки, если нет файла
-        config = {
-            "port": "COM3",
-            "baudrate": 38400,
-            "device_id": 3,
-            "MOTOR_SPEED_1": 137270,
-            "MOTOR_SPEED_2": 1405000
-        }
+        """Точка входа в приложение"""
+        try:
+            config = load_config()
+        except FileNotFoundError:
+            # дефолтные настройки, если нет файла
+            config = {
+                "port": "COM3",
+                "baudrate": 38400,
+                "device_id": 3,
+                "MOTOR_SPEED_1": 137270,
+                "MOTOR_SPEED_2": 1405000
+            }
 
-    controller = SerialDeviceController(
-        port=config.get("port", "COM3"),
-        baudrate=config.get("baudrate", 38400),
-        device_id=config.get("device_id", 3),
-    )
+        controller = SerialDeviceController(
+            port=config.get("port", "COM3"),
+            baudrate=config.get("baudrate", 38400),
+            device_id=config.get("device_id", 3),
+        )
 
-    # Создаем poller
-    poller = DevicePoller(controller, interval=0.005)
-    desint = ArduinoDesint()
-    model = DeviceModel(controller, config, poller, desint)
+        # Создаем poller
+        poller = DevicePoller(controller, interval=0.005)
+        desint = ArduinoDesint()
+        model = DeviceModel(controller, config, poller, desint)
 
-    app = DeviceGUI(model, desint)
+        app = DeviceGUI(model, desint)
+        print(app.__class__.__name__)
 
-    # очередь для команд из FireballProxy
-    cmd_queue = queue.Queue()
+        # очередь для команд из FireballProxy
+        cmd_queue = queue.Queue()
 
-    # инициализация прокси
-    proxy = FireballProxy(
-        claim_class="TDForm",
-        claim_name="Генератор тока",
-        forward_name="Генератор токла",
-        command_queue=cmd_queue,
-        model=model,
-        desint_model=desint
-    )
-    proxy.start()
+        # инициализация прокси
+        proxy = FireballProxy(
+            claim_class="TDForm",
+            claim_name="Генератор тока",
+            forward_name="Генератор токла",
+            command_queue=cmd_queue,
+            model=model,
+            desint_model=desint
+        )
+        proxy.start()
 
-    # функция обработки команд из очереди
-    def process_commands():
-        while not cmd_queue.empty():
-            try:
-                cmd = cmd_queue.get_nowait()
-                if cmd == "START":
-                    app.start_process()
-                elif cmd == "STOP":
+        # функция обработки команд из очереди
+        def process_commands():
+            while not cmd_queue.empty():
+                try:
+                    cmd = cmd_queue.get_nowait()
+                    if cmd == "START":
+                        app.start_process()
+                    elif cmd == "STOP":
+                        app.stop_process()
+                except Exception as e:
+                    print(f'[ERROR] process_commands: {e}')
                     app.stop_process()
-            except Exception as e:
-                print(f'[ERROR] process_commands: {e}')
-                app.stop_process()
 
+            app.window.after(100, process_commands)
+
+        # запуск цикла обработки команд
         app.window.after(100, process_commands)
 
-    # запуск цикла обработки команд
-    app.window.after(100, process_commands)
+        # перенаправим stdout/stderr в лог GUI
+        class GuiOutputRedirector:
+            def __init__(self, gui):
+                self.gui = gui
 
-    # перенаправим stdout/stderr в лог GUI
-    class GuiOutputRedirector:
-        def __init__(self, gui):
-            self.gui = gui
+            def write(self, message):
+                if message.strip():
+                    self.gui.append_command_log(message.strip())
 
-        def write(self, message):
-            if message.strip():
-                self.gui.append_command_log(message.strip())
+            def flush(self):
+                pass
 
-        def flush(self):
-            pass
+        sys.stdout = GuiOutputRedirector(app)
+        sys.stderr = GuiOutputRedirector(app)
 
-    sys.stdout = GuiOutputRedirector(app)
-    sys.stderr = GuiOutputRedirector(app)
+        app.run()
+    except Exception as e:
+        with open('crash_dump.txt', 'w') as dump:
+            dump.write(f'[FATAL Exception] in app {e}\n')
+            try:
+                app.stop_process()
+                dump.write('Process stoped sucsesfully\n')
+            except Exception as e:
+                dump.write(f'Process not stopped: {e}\n')
+            dump.write('dump:\n')
 
-    app.run()
+            list_classes = [app, proxy, model, desint, poller, controller]
+
+            for cls in list_classes:
+                try:
+                    attr = vars(cls).items()
+                    dump.write(f'{cls.__class__.__name__}:\n')
+                except Exception as e:
+                    dump.write(f'{cls.__class__.__name__} not aviable: {e}\n')
+                    continue
+
+                for attr_name, attr_value in attr:
+                    dump.write(f'{attr_name}: {attr_value}')
 
 
 if __name__ == "__main__":
