@@ -10,6 +10,7 @@ from src.device.device_poller import DevicePoller
 from src.device.device_model import DeviceModel
 from src.fireballProxy.fireballProxy import FireballProxy
 from src.device.Desint_controller import ArduinoDesint
+import tkinter as tk
 
 
 def load_config(config_path="config.json"):
@@ -35,6 +36,7 @@ def main():
                 "MOTOR_SPEED_1": 137270,
                 "MOTOR_SPEED_2": 1405000
             }
+        root = tk.Tk()
 
         controller = SerialDeviceController(
             port=config.get("port", "COM3"),
@@ -47,7 +49,7 @@ def main():
         desint = ArduinoDesint()
         model = DeviceModel(controller, config, poller, desint)
 
-        app = DeviceGUI(model, desint)
+        app = DeviceGUI(root, model, desint)
 
         # очередь для команд из FireballProxy
         cmd_queue = queue.Queue()

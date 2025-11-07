@@ -14,7 +14,7 @@ def resource_path(relative: str) -> str:
 
 
 class DeviceGUI:
-    def __init__(self, model, desint_model=None):
+    def __init__(self, root, model, desint_model=None):
         """
         :param model: экземпляр DeviceModel
         param desint_model: экземпляр ArduinoDesint
@@ -23,7 +23,7 @@ class DeviceGUI:
         self.desint_model = desint_model
         self.model.init_command_loger(self.append_command_log)
 
-        self.window = tk.Tk()
+        self.window = root
         self.window.title("Auger sample introduction system")
         self.window.geometry("900x950")
         icon_path = resource_path("icon.ico")
