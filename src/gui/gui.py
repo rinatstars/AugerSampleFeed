@@ -250,9 +250,9 @@ class DeviceGUI:
 
         ttk.Button(frame, text="СТАРТ", command=self.start_process).grid(row=0, column=0, padx=5)
 
-        ttk.Label(frame, text="Ручн.:").grid(row=0, column=1, sticky="w")
-        ttk.Button(frame, text="СТАРТ", command=self.start_process_manual).grid(row=0, column=2, padx=5)
-        ttk.Button(frame, text="СТОП", command=self.stop_process_manual).grid(row=0, column=3, padx=5)
+        ttk.Button(frame, text="СТАРТ Ручн.", command=self.start_process_manual).grid(row=0, column=1, padx=5)
+        ttk.Button(frame, text="СТОП", command=self.stop_process_manual).grid(row=0, column=2, padx=5)
+        ttk.Button(frame, text="НАЗАД", command=self.model.go_back).grid(row=0, column=3, padx=5)
 
         ttk.Label(frame, text="Мотор 1:").grid(row=1, column=0, sticky="w")
         ttk.Button(frame, text="Вперёд", command=self.model.motor1_forward).grid(row=1, column=1)
