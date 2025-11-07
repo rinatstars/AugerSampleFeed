@@ -129,6 +129,7 @@ class DeviceModel:
         self.manual_start = True
         self.manual_start_time = time.time()
         self.on_desint = on_desint
+        self.command_loger(f'Старт инициализирован')
 
     def start_process_manual(self):
         self.manual_start = False
@@ -138,6 +139,10 @@ class DeviceModel:
             self.desint.send_start()
 
     def stop_process_manual(self):
+        if self.manual_start:
+            self.manual_start = False
+            print('Старт отменён')
+
         if not self.is_end_process():
             self.motor1_stop()
             self.motor2_stop()
@@ -333,6 +338,10 @@ class DeviceModel:
                     elif addr == C.REG_PERIOD_M2:
                         self.last_motor_period["PERIOD_M2"] = val
 
+    def go_back(self):
+        self.motor2_forward()
+        self.motor1_backward()
+
     def _update_status_flags(self, value: int):
         bits = [
             "START", "BEG_BLK", "END_BLK", "M1_FWD", "M1_BACK",
@@ -352,8 +361,7 @@ class DeviceModel:
         self._set_back_speed()
 
         if self.manual and self.is_end_blk() and not self.is_end_process():
-            self.motor2_forward()
-            self.motor1_backward()
+            self.go_back()
 
         if self.is_beg_blk() and self.is_m2_run() and not self.is_m1_run():
             self.motor2_stop()

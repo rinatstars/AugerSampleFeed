@@ -172,10 +172,12 @@ class FireballProxy:
                     win32gui.PumpWaitingMessages()
                 except Exception as e:
                     # logger.exception(f"[FireballProxy] Pump error: {e}")
+                    print(f"[FireballProxy] Pump error: {e}")
                     pass
                 time.sleep(0.01)
         except Exception as e:
             # logger.exception(f"[FireballProxy] Pump exception: {e}")
+            print(f"[FireballProxy] Pump exception: {e}")
             pass
         finally:
             pythoncom.CoUninitialize()
@@ -282,6 +284,7 @@ class FireballProxy:
             return res
         except Exception as e:
             # logger.error("Ошибка при пересылке сообщения 0x%X: %s", msg, e)
+            print(f"[FireballProxy] Ошибка при пересылки сообщения: {e}")
             self._target_hwnd = None
             return None
 

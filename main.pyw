@@ -65,11 +65,16 @@ def main():
     # функция обработки команд из очереди
     def process_commands():
         while not cmd_queue.empty():
-            cmd = cmd_queue.get_nowait()
-            if cmd == "START":
-                app.start_process()
-            elif cmd == "STOP":
+            try:
+                cmd = cmd_queue.get_nowait()
+                if cmd == "START":
+                    app.start_process()
+                elif cmd == "STOP":
+                    app.stop_process()
+            except Exception as e:
+                print(f'[ERROR] process_commands: {e}')
                 app.stop_process()
+
         app.window.after(100, process_commands)
 
     # запуск цикла обработки команд
