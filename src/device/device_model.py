@@ -381,7 +381,7 @@ class DeviceModel:
 
     def _set_back_speed(self):
         try:
-            if self.increase_back_speed.get():
+            if self.increase_back_speed:
                 if self.status_flags.get("M1_BACK") and not self.m1_back:
                     reg_addr = C.REGISTERS_MAP.get('SET_PERIOD_M1')
                     self._write(reg_addr, int(5000))
