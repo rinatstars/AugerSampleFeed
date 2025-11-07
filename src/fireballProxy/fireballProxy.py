@@ -164,30 +164,31 @@ class FireballProxy:
         # logger.debug("Создано окно-клон '%s' (HWND=%s)", self.claim_name, self.hwnd_proxy)
 
     def _pump_messages(self) -> None:
-        """Цикл сообщений. Запускается в отдельном потоке."""
-        pythoncom.CoInitialize()
-        try:
-            while self._running:
-                try:
-                    win32gui.PumpWaitingMessages()
-                except Exception as e:
-                    # logger.exception(f"[FireballProxy] Pump error: {e}")
-                    print(f"[FireballProxy] Pump error: {e}")
-                    pass
-                time.sleep(0.01)
-        except Exception as e:
-            # logger.exception(f"[FireballProxy] Pump exception: {e}")
-            print(f"[FireballProxy] Pump exception: {e}")
-            pass
-        finally:
-            pythoncom.CoUninitialize()
+        with threading.Lock:
+            """Цикл сообщений. Запускается в отдельном потоке."""
+            pythoncom.CoInitialize()
             try:
-                if self.hwnd_proxy:
-                    win32gui.DestroyWindow(self.hwnd_proxy)
-            except Exception:
+                while self._running:
+                    try:
+                        win32gui.PumpWaitingMessages()
+                    except Exception as e:
+                        # logger.exception(f"[FireballProxy] Pump error: {e}")
+                        print(f"[FireballProxy] Pump error: {e}")
+                        pass
+                    time.sleep(0.01)
+            except Exception as e:
+                # logger.exception(f"[FireballProxy] Pump exception: {e}")
+                print(f"[FireballProxy] Pump exception: {e}")
                 pass
-            self.hwnd_proxy = None
-            self._running = False
+            finally:
+                pythoncom.CoUninitialize()
+                try:
+                    if self.hwnd_proxy:
+                        win32gui.DestroyWindow(self.hwnd_proxy)
+                except Exception:
+                    pass
+                self.hwnd_proxy = None
+                self._running = False
 
     def _wnd_proc(self, hwnd, msg, wparam, lparam):
         """Обработчик сообщений (только ставит команды в очередь)."""
