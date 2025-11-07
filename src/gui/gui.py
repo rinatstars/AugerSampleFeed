@@ -272,11 +272,11 @@ class DeviceGUI:
         ttk.Button(frame, text="Открыть", command=self.model.valve2_on).grid(row=4, column=1)
         ttk.Button(frame, text="Закрыть", command=self.model.valve2_off).grid(row=4, column=2)
 
-        self.model.increase_back_speed = BooleanVar(value=False)
-        self.model.manual = BooleanVar(value=False)
+        self.increase_back_speed = BooleanVar(value=False)
+        self.manual = BooleanVar(value=False)
         ttk.Label(frame, text="Настройка:").grid(row=6, column=0, sticky="w")
-        ttk.Checkbutton(frame, text='Ускорить назад', variable=self.model.increase_back_speed).grid(row=6, column=1)
-        ttk.Checkbutton(frame, text='Ручной старт', variable=self.model.manual).grid(row=6, column=2)
+        ttk.Checkbutton(frame, text='Ускорить назад', variable=self.increase_back_speed).grid(row=6, column=1)
+        ttk.Checkbutton(frame, text='Ручной старт', variable=self.manual).grid(row=6, column=2)
 
     def start_process(self):
         if self.model.manual.get():
@@ -452,6 +452,8 @@ class DeviceGUI:
     def _start_background_tasks(self):
         start_time = time.time()
         self._update_status()
+        self.model.increase_back_speed = self.increase_back_speed.get()
+        self.model.manual = self.manual.get()
 
         processing_time = time.time() - start_time
         next_interval = max(2, int(processing_time * 1000 * 1.1))
