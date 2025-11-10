@@ -48,11 +48,12 @@ class DeviceModel:
         self.delta_time = time.time()
         self.position = 0
 
+        self.puring_end = False
+        self.puring_time_counter = [time.time(), 0, False]
+
         # Ускоренное движение назад инициализируется как буул вар в гуе
         self.increase_back_speed = None
         self.m1_back = False
-
-
 
         # подготовка очереди для непрерывного опроса
         if poller is not None:
@@ -346,6 +347,9 @@ class DeviceModel:
     def go_back(self):
         self.motor2_forward()
         self.motor1_backward()
+        if self.puring_end:
+            self.puring_time_counter = [time.time(), 0, True]
+            self.valve2_on()
 
     def _update_status_flags(self, value: int):
         bits = [
@@ -379,6 +383,19 @@ class DeviceModel:
             if delay_time >= start_time:
                 self.manual_start = False
                 self.start_process_manual()
+
+        if self.puring_time_counter[2]:
+            if (time.time() - self.puring_time_counter[0]) * 1000 > self.settings_vars.get('T_PURGING'):
+                if self.status_flags.get('COM_V2'):
+                    self.valve2_off()
+                else:
+                    self.valve2_on()
+                self.puring_time_counter[0] = time.time()
+                self.puring_time_counter[1] += 1
+            if self.puring_time_counter[1] > 6:
+                self.puring_time_counter = [time.time(), 0, False]
+                self.valve2_off()
+
 
     def find_property_auger(self):
         if self.status_flags.get("BEG_BLK") and not self.is_m1_run():

@@ -273,11 +273,12 @@ class DeviceGUI:
         ttk.Button(frame, text="Открыть", command=self.model.valve2_on).grid(row=4, column=1)
         ttk.Button(frame, text="Закрыть", command=self.model.valve2_off).grid(row=4, column=2)
 
-        self.model.increase_back_speed = BooleanVar(value=False)
-        self.model.manual = BooleanVar(value=False)
+        self.increase_back_speed = BooleanVar(value=True)
+        self.manual = BooleanVar(value=True)
+        self.puring_end = BooleanVar(value=True)
         ttk.Label(frame, text="Настройка:").grid(row=6, column=0, sticky="w")
-        ttk.Checkbutton(frame, text='Ускорить назад', variable=self.model.increase_back_speed).grid(row=6, column=1)
-        ttk.Checkbutton(frame, text='Ручной старт', variable=self.model.manual).grid(row=6, column=2)
+        ttk.Checkbutton(frame, text='Ускорить назад', variable=self.increase_back_speed).grid(row=6, column=1)
+        ttk.Checkbutton(frame, text='Ручной старт', variable=self.manual).grid(row=6, column=2)
 
     def start_process(self):
         if self.model.manual.get():
@@ -443,6 +444,10 @@ class DeviceGUI:
         if self.desint_model and self.desint_model.is_connected() and self.desint_model.is_running:
             if self.model.is_end_process():
                 self.desint_model.send_end()
+
+        self.model.increase_back_speed = self.increase_back_speed.get()
+        self.model.manual = self.manual.get()
+        self.model.puring_end = self.puring_end.get()
 
     def _update_interval_upd_data(self, interval):
         self.interval_upd_data.set(f"Обновление данных: {interval}мс")
