@@ -282,7 +282,7 @@ class DeviceGUI:
         ttk.Checkbutton(frame, text='Ручной старт', variable=self.puring_end).grid(row=6, column=3)
 
     def start_process(self):
-        if self.model.manual.get():
+        if self.manual.get():
             self.start_process_manual()
             return
         self.model.start_process()
@@ -290,7 +290,7 @@ class DeviceGUI:
             self.desint_model.send_start()
 
     def stop_process(self):
-        if self.model.manual.get():
+        if self.manual.get():
             self.stop_process_manual()
             return
         self.model.stop_process()
