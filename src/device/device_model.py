@@ -42,8 +42,11 @@ class DeviceModel:
         self.last_values = {}
 
         # Таймер подачи пробы
-        self.start_time = 0
+        self.start_time = time.time()
         self.end_time = None
+
+        self.delta_time = time.time()
+        self.position = 0
 
         # Ускоренное движение назад инициализируется как буул вар в гуе
         self.increase_back_speed = None
@@ -353,11 +356,7 @@ class DeviceModel:
             self.status_flags[bit] = bool(value & (1 << i))
 
         # управление временем подачи
-        if self.status_flags.get("BEG_BLK"):
-            self.start_time = time.time()
-            self.end_time = None
-        if self.status_flags.get("END_BLK") and self.end_time is None:
-            self.end_time = time.time()
+        self.find_property_auger()
 
         # Управление повышением скорости назад
         self._set_back_speed()
@@ -380,6 +379,20 @@ class DeviceModel:
             if delay_time >= start_time:
                 self.manual_start = False
                 self.start_process_manual()
+
+    def find_property_auger(self):
+        if self.status_flags.get("BEG_BLK") and not self.is_m1_run():
+            self.start_time = time.time()
+            self.position = 0
+            self.end_time = None
+        if self.status_flags.get("END_BLK") and self.end_time is None:
+            self.end_time = time.time()
+
+        if self.status_flags.get("M1_FWD"):
+            self.position += self.last_motor_period["PERIOD_M1"] * (time.time() - self.delta_time) / 60
+        if self.status_flags.get("M1_BACK"):
+            self.position -= self.last_motor_period["PERIOD_M1"] * (time.time() - self.delta_time) / 60
+        self.delta_time = time.time()
 
     def _set_back_speed(self):
         try:

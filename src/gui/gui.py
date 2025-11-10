@@ -32,6 +32,7 @@ class DeviceGUI:
         self.interval_polling = StringVar(value="Обновление окна: ---мс")
         self.interval_upd_data = StringVar(value="Обновление данных: ---мс")
         self.interval_work_auger = StringVar(value="Время подачи пробы: ---с")
+        self.position_work_auger = StringVar(value="Положение шнека: ---мм")
 
         self._setup_ui()
         self._start_background_tasks()
@@ -346,6 +347,7 @@ class DeviceGUI:
         frame = ttk.LabelFrame(parent, text="Время работы", padding="5")
         frame.pack(fill='x', pady=5)
         ttk.Label(frame, textvariable=self.interval_work_auger).grid(row=0, column=0, padx=5, sticky='w')
+        ttk.Label(frame, textvariable=self.position_work_auger).grid(row=0, column=1, padx=5, sticky='w')
 
     def _create_log_frame(self, parent):
         frame = ttk.LabelFrame(parent, text="Журнал команд", padding=5)
@@ -432,8 +434,11 @@ class DeviceGUI:
         self.rotate_speed.set(self.model.get_speed_m2())
 
         work_time = self.model.get_work_time()
+        position = self.model.position
         if work_time is not None:
             self.interval_work_auger.set(f"Время подачи пробы: {round(work_time, 1)} c")
+
+        self.position_work_auger.set(f"Положение шнека: {round(position, 2)} мм")
 
         if self.desint_model and self.desint_model.is_connected() and self.desint_model.is_running:
             if self.model.is_end_process():
