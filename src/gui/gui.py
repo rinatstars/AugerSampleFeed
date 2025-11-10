@@ -279,6 +279,7 @@ class DeviceGUI:
         ttk.Label(frame, text="Настройка:").grid(row=6, column=0, sticky="w")
         ttk.Checkbutton(frame, text='Ускорить назад', variable=self.increase_back_speed).grid(row=6, column=1)
         ttk.Checkbutton(frame, text='Ручной старт', variable=self.manual).grid(row=6, column=2)
+        ttk.Checkbutton(frame, text='Ручной старт', variable=self.puring_end).grid(row=6, column=3)
 
     def start_process(self):
         if self.model.manual.get():

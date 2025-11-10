@@ -385,7 +385,7 @@ class DeviceModel:
                 self.start_process_manual()
 
         if self.puring_time_counter[2]:
-            if (time.time() - self.puring_time_counter[0]) * 1000 > self.settings_vars.get('T_PURGING'):
+            if (time.time() - self.puring_time_counter[0]) * 1000 > self.settings_vars.get('T_PURGING').get():
                 if self.status_flags.get('COM_V2'):
                     self.valve2_off()
                 else:
