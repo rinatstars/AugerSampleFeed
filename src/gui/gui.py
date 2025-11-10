@@ -37,8 +37,8 @@ class DeviceGUI:
         self._setup_ui()
         self._start_background_tasks()
 
-        if self.model.poller is not None:
-            self.model.poller.init_func_time_calc(self._update_interval_upd_data)
+        # if self.model.poller is not None:
+        #     self.model.poller.init_func_time_calc(self._update_interval_upd_data)
 
         self.start_time = 0
         self.end_time = None
