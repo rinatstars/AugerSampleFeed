@@ -2,8 +2,9 @@ import tkinter as tk
 import time
 import sys
 from pathlib import Path
-from tkinter import ttk, scrolledtext, messagebox, StringVar, BooleanVar
-from src.device.device_model import DeviceModel
+from tkinter import ttk, scrolledtext, messagebox, StringVar, BooleanVar, IntVar
+from src.device.device_model import DeviceModelAuger
+from src.device.device_model_flow_sensor import DeviceModelFlowSensor
 
 
 def resource_path(relative: str) -> str:
@@ -14,18 +15,21 @@ def resource_path(relative: str) -> str:
 
 
 class DeviceGUI:
-    def __init__(self, model, desint_model=None):
+    def __init__(self, model_auger, desint_model=None, model_flow_sensor=None):
         """
-        :param model: экземпляр DeviceModel
-        param desint_model: экземпляр ArduinoDesint
+        :param model_auger: экземпляр DeviceModel
+        :param desint_model: экземпляр ArduinoDesint
+        :param model_flow_sensor: экземпляр DeviceModelFlowSensor
         """
-        self.model: DeviceModel = model
+        self.model_auger: DeviceModelAuger = model_auger
         self.desint_model = desint_model
-        self.model.init_command_loger(self.append_command_log)
+        self.model_flow_sensor: DeviceModelFlowSensor = model_flow_sensor
+        self.model_auger.init_command_loger(self.append_command_log)
+        self.model_flow_sensor.init_command_logger(self.append_command_log)
 
         self.window = tk.Tk()
         self.window.title("Auger sample introduction system")
-        self.window.geometry("900x950")
+        self.window.geometry("1500x950")
         icon_path = resource_path("icon.ico")
         self.window.iconbitmap(icon_path)
 
@@ -33,11 +37,13 @@ class DeviceGUI:
         self.interval_upd_data = StringVar(value="Обновление данных: ---мс")
         self.interval_work_auger = StringVar(value="Время подачи пробы: ---с")
 
+        self.text_press = "Давление"
+
         self._setup_ui()
         self._start_background_tasks()
 
-        if self.model.poller is not None:
-            self.model.poller.init_func_time_calc(self._update_interval_upd_data)
+        if self.model_auger.poller is not None:
+            self.model_auger.poller.init_func_time_calc(self._update_interval_upd_data)
 
         self.start_time = 0
         self.end_time = None
@@ -53,18 +59,31 @@ class DeviceGUI:
         left_frame = ttk.Frame(main_container)
         left_frame.grid(row=0, column=0, sticky="nsw", padx=(0, 10))
 
-        right_frame = ttk.Frame(main_container)
-        right_frame.grid(row=0, column=1, sticky="nsew")
+        middle_frame = ttk.Frame(main_container)
+        middle_frame.grid(row=0, column=1, sticky="nsw")
 
+        right_frame = ttk.Frame(main_container)
+        right_frame.grid(row=0, column=2, sticky="nsw", padx=(10, 0))
+
+        # Пробоподача
         self._create_connection_frame(left_frame)
-        self._create_connection_desint_frame(left_frame)
         self._create_status_frame(left_frame)
         self._create_settings_frame(left_frame)
         self._create_control_frame(left_frame)
-        self._create_desint_frame(left_frame)
         self._create_verify_frame(left_frame)
+        # Дезинтегратор
+        self._create_connection_desint_frame(left_frame)
+        self._create_desint_frame(left_frame)
         self._create_ping_frame(left_frame)
         self._create_time_work_frame(left_frame)
+        # Вытяжка
+        self._create_status_frame_flow_sensor(middle_frame)
+        self._create_temperature_frame(middle_frame)
+        self._create_position_frame(middle_frame)
+        self._create_pressure_frame(middle_frame)
+        self._create_command_frame(middle_frame)
+        # self._create_log_frame(left_frame)
+        # Лог
         self._create_log_frame(right_frame)
         self._setup_keyboard_bindings()
 
@@ -81,15 +100,15 @@ class DeviceGUI:
         """Обработка нажатия клавиш"""
         key = event.keysym.lower()
 
-        if key == 'space' and self.model.is_connected():
-            self.model.start_process()
+        if key == 'space' and self.model_auger.is_connected():
+            self.model_auger.start_process()
             self.append_command_log('Запуск по пробелу')
 
     def _create_connection_frame(self, parent):
         frame = ttk.LabelFrame(parent, text="Подключение", padding=5)
         frame.pack(fill="x", pady=5)
 
-        ports = self.model.list_ports()
+        ports = self.model_auger.list_ports()
         if not ports:
             ports = ["Нет портов"]
 
@@ -105,7 +124,7 @@ class DeviceGUI:
         refresh_btn.grid(row=0, column=2, padx=2, sticky="w")
 
         ttk.Label(frame, text="Baudrate:").grid(row=0, column=3, sticky="w")
-        self.baud_var = tk.IntVar(value=self.model.config.get("baudrate", 38400))
+        self.baud_var = tk.IntVar(value=self.model_auger.config.get("baudrate", 38400))
         ttk.Entry(frame, textvariable=self.baud_var, width=8).grid(row=0, column=4, padx=2)
 
         self.connect_btn = ttk.Button(frame, text="Подключить", command=self._toggle_connection)
@@ -119,7 +138,7 @@ class DeviceGUI:
         frame = ttk.LabelFrame(parent, text="Подключение дезинтегратора", padding=5)
         frame.pack(fill="x", pady=5)
 
-        ports = self.model.list_ports()
+        ports = self.model_auger.list_ports()
         if not ports:
             ports = ["Нет портов"]
 
@@ -150,7 +169,7 @@ class DeviceGUI:
         frame.pack(fill="x", pady=5)
 
         self.status_vars = {}
-        for i, bit in enumerate(self.model.status_flags):
+        for i, bit in enumerate(self.model_auger.status_flags):
             var = tk.BooleanVar(value=False)
             cb = ttk.Checkbutton(frame, text=bit, variable=var, state="disabled")
             cb.grid(row=i // 4, column=i % 4, sticky="w")
@@ -174,7 +193,7 @@ class DeviceGUI:
         self.setting_vars_raw = {}
         self._syncing = False
 
-        for i, (name, meta) in enumerate(self.model.settings.items()):
+        for i, (name, meta) in enumerate(self.model_auger.settings.items()):
             # Человеческое поле
             ttk.Label(frame, text=meta["alias"]).grid(row=i, column=0, sticky="w")
             var_human = tk.DoubleVar(value=meta["default"])
@@ -187,9 +206,9 @@ class DeviceGUI:
             if i < 2:
                 ttk.Label(frame, text="период, мс").grid(row=i, column=2, sticky="w")
                 if "M1" in name:
-                    init_val = self.model.speed_to_period_m1(meta["default"])
+                    init_val = self.model_auger.speed_to_period_m1(meta["default"])
                 else:
-                    init_val = self.model.speed_to_period_m2(meta["default"])
+                    init_val = self.model_auger.speed_to_period_m2(meta["default"])
                 var_raw = tk.IntVar(value=init_val)
                 spin_raw = ttk.Spinbox(frame, from_=0, to=100000, increment=100,
                                        textvariable=var_raw, width=10)
@@ -221,9 +240,9 @@ class DeviceGUI:
                 except tk.TclError:
                     val = 0
                 if "M1" in name:
-                    self.setting_vars_raw[name].set(self.model.speed_to_period_m1(val))
+                    self.setting_vars_raw[name].set(self.model_auger.speed_to_period_m1(val))
                 else:
-                    self.setting_vars_raw[name].set(self.model.speed_to_period_m2(val))
+                    self.setting_vars_raw[name].set(self.model_auger.speed_to_period_m2(val))
             finally:
                 self._syncing = False
 
@@ -238,9 +257,9 @@ class DeviceGUI:
                 except tk.TclError:
                     val = 0
                 if "M1" in name:
-                    self.setting_vars[name].set(round(self.model.period_to_speed_m1(val), 2))
+                    self.setting_vars[name].set(round(self.model_auger.period_to_speed_m1(val), 2))
                 else:
-                    self.setting_vars[name].set(round(self.model.period_to_speed_m2(val), 2))
+                    self.setting_vars[name].set(round(self.model_auger.period_to_speed_m2(val), 2))
             finally:
                 self._syncing = False
 
@@ -248,58 +267,55 @@ class DeviceGUI:
         frame = ttk.LabelFrame(parent, text="Управление", padding=5)
         frame.pack(fill="x", pady=5)
 
-        ttk.Button(frame, text="СТАРТ", command=self.start_process).grid(row=0, column=0, padx=5)
-
-        ttk.Label(frame, text="Ручн.:").grid(row=0, column=1, sticky="w")
-        ttk.Button(frame, text="СТАРТ", command=self.start_process_manual).grid(row=0, column=2, padx=5)
-        ttk.Button(frame, text="СТОП", command=self.stop_process_manual).grid(row=0, column=3, padx=5)
+        ttk.Button(frame, text="СТАРТ", command=self.start_process).grid(row=0, column=1, padx=5)
+        ttk.Button(frame, text="СТОП", command=self.stop_process).grid(row=0, column=2, padx=5)
 
         ttk.Label(frame, text="Мотор 1:").grid(row=1, column=0, sticky="w")
-        ttk.Button(frame, text="Вперёд", command=self.model.motor1_forward).grid(row=1, column=1)
-        ttk.Button(frame, text="Назад", command=self.model.motor1_backward).grid(row=1, column=2)
-        ttk.Button(frame, text="Стоп", command=self.model.motor1_stop).grid(row=1, column=3)
+        ttk.Button(frame, text="Вперёд", command=self.model_auger.motor1_forward).grid(row=1, column=1)
+        ttk.Button(frame, text="Назад", command=self.model_auger.motor1_backward).grid(row=1, column=2)
+        ttk.Button(frame, text="Стоп", command=self.model_auger.motor1_stop).grid(row=1, column=3)
 
         ttk.Label(frame, text="Мотор 2:").grid(row=2, column=0, sticky="w")
-        ttk.Button(frame, text="Вперёд", command=self.model.motor2_forward).grid(row=2, column=1)
-        ttk.Button(frame, text="Назад", command=self.model.motor2_backward).grid(row=2, column=2)
-        ttk.Button(frame, text="Стоп", command=self.model.motor2_stop).grid(row=2, column=3)
+        ttk.Button(frame, text="Вперёд", command=self.model_auger.motor2_forward).grid(row=2, column=1)
+        ttk.Button(frame, text="Назад", command=self.model_auger.motor2_backward).grid(row=2, column=2)
+        ttk.Button(frame, text="Стоп", command=self.model_auger.motor2_stop).grid(row=2, column=3)
 
         ttk.Label(frame, text="Клапан 1:").grid(row=3, column=0, sticky="w")
-        ttk.Button(frame, text="Открыть", command=self.model.valve1_on).grid(row=3, column=1)
-        ttk.Button(frame, text="Закрыть", command=self.model.valve1_off).grid(row=3, column=2)
+        ttk.Button(frame, text="Открыть", command=self.model_auger.valve1_on).grid(row=3, column=1)
+        ttk.Button(frame, text="Закрыть", command=self.model_auger.valve1_off).grid(row=3, column=2)
 
         ttk.Label(frame, text="Клапан 2:").grid(row=4, column=0, sticky="w")
-        ttk.Button(frame, text="Открыть", command=self.model.valve2_on).grid(row=4, column=1)
-        ttk.Button(frame, text="Закрыть", command=self.model.valve2_off).grid(row=4, column=2)
+        ttk.Button(frame, text="Открыть", command=self.model_auger.valve2_on).grid(row=4, column=1)
+        ttk.Button(frame, text="Закрыть", command=self.model_auger.valve2_off).grid(row=4, column=2)
 
-        self.model.increase_back_speed = BooleanVar(value=False)
-        self.model.manual = BooleanVar(value=False)
+        self.model_auger.increase_back_speed = BooleanVar(value=False)
+        self.model_auger.manual = BooleanVar(value=False)
         ttk.Label(frame, text="Настройка:").grid(row=6, column=0, sticky="w")
-        ttk.Checkbutton(frame, text='Ускорить назад', variable=self.model.increase_back_speed).grid(row=6, column=1)
-        ttk.Checkbutton(frame, text='Ручной старт', variable=self.model.manual).grid(row=6, column=2)
+        ttk.Checkbutton(frame, text='Ускорить назад', variable=self.model_auger.increase_back_speed).grid(row=6, column=1)
+        ttk.Checkbutton(frame, text='Ручной старт', variable=self.model_auger.manual).grid(row=6, column=2)
 
     def start_process(self):
-        if self.model.manual.get():
+        if self.model_auger.manual.get():
             self.start_process_manual()
             return
-        self.model.start_process()
+        self.model_auger.start_process()
         if self.on_desint.get():
             self.desint_model.send_start()
 
     def stop_process(self):
-        if self.model.manual.get():
+        if self.model_auger.manual.get():
             self.stop_process_manual()
             return
-        self.model.stop_process()
+        self.model_auger.stop_process()
         if self.on_desint.get():
             self.desint_model.send_end()
 
     def start_process_manual(self):
 
-        self.model.start_process_manual_init(self.on_desint.get())
+        self.model_auger.start_process_manual_init(self.on_desint.get())
 
     def stop_process_manual(self):
-        self.model.stop_process_manual()
+        self.model_auger.stop_process_manual()
 
         if self.on_desint.get():
             self.desint_model.send_end()
@@ -334,7 +350,7 @@ class DeviceGUI:
     def _create_verify_frame(self, parent):
         frame = ttk.LabelFrame(parent, text="Верификация", padding=5)
         frame.pack(fill="x", pady=5)
-        ttk.Button(frame, text="Проверить устройство", command=self.model.verify_device).pack()
+        ttk.Button(frame, text="Проверить устройство", command=self.model_auger.verify_device).pack()
 
     def _create_ping_frame(self, parent):
         frame = ttk.LabelFrame(parent, text="Связь", padding="5")
@@ -346,6 +362,122 @@ class DeviceGUI:
         frame = ttk.LabelFrame(parent, text="Время работы", padding="5")
         frame.pack(fill='x', pady=5)
         ttk.Label(frame, textvariable=self.interval_work_auger).grid(row=0, column=0, padx=5, sticky='w')
+
+    def _create_status_frame_flow_sensor(self, parent):
+        """Создает фрейм статуса"""
+        frame = ttk.LabelFrame(parent, text="Статус", padding="5")
+        frame.pack(fill='x', pady=5)
+
+        self.status_vars_flow_sensor = {}
+        for i, bit in enumerate(self.model_flow_sensor.status_flags):
+            var = tk.BooleanVar(value=False)
+            cb = ttk.Checkbutton(frame, text=bit, variable=var, state="disabled")
+            cb.grid(row=i // 4, column=i % 4, sticky="w")
+            self.status_vars_flow_sensor[bit] = var
+
+    def _create_temperature_frame(self, parent):
+        """Создает фрейм температуры"""
+        frame = ttk.LabelFrame(parent, text="Температура", padding="5")
+        frame.pack(fill='x', pady=5)
+
+        self.temperature_var = StringVar(value="--- °C")
+
+        ttk.Label(frame, textvariable=self.temperature_var, font=('Arial', 12)).pack()
+
+    def _create_position_frame(self, parent):
+        """Создает фрейм позиции"""
+        frame = ttk.LabelFrame(parent, text="Позиция заслонки", padding="5")
+        frame.pack(fill='x', pady=5)
+
+        self.position_var = IntVar(value=0)
+        self.position_var_set = IntVar(value=0)
+        self.position_text_var = StringVar(value="Позиция изм.: ---")
+        self.position_text_var_set = StringVar(value="Позиция уст.: ---")
+
+        ttk.Label(frame, textvariable=self.position_text_var).grid(row=0, column=0, padx=5, sticky='w')
+        ttk.Label(frame, textvariable=self.position_text_var_set).grid(row=0, column=1, padx=5, sticky='w')
+        ttk.Scale(frame, variable=self.position_var_set, from_=0, to=4096, length=300, command=self._set_position_var).grid( # 4294967295
+            row=1, column=0, columnspan=2, padx=5, sticky='w'
+        )
+        ttk.Button(frame, text="Применить", command=self._set_position).grid(
+            row=2, column=0, columnspan=2, padx=5, sticky='n'
+        )
+
+    def _set_position_var(self, value):
+        """Меняет значение переменной с текстом установленного положения заслонки"""
+        value = self.position_var_set.get()
+        self.position_text_var_set.set(f"Позиция уст.: {value}")
+
+    def _set_position(self):
+        """Устанавливает позицию заслонки"""
+        value = self.position_var_set.get()
+        if self.model_flow_sensor.set_position_val(value):
+            self.append_command_log(f"Позиция установлена: {value}")
+        else:
+            self.append_command_log(f"Ошибка установки позиции, ответа НЕТ")
+
+    def _change_speed_press(self):
+        if self.calc_speed:
+            self.text_press = "Скорость"
+        else:
+            self.text_press = "Давление"
+
+    def _create_pressure_frame(self, parent):
+        """Создает фрейм давления"""
+        frame = ttk.LabelFrame(parent, text=self.text_press, padding="5")
+        frame.pack(fill='x', pady=5)
+
+        self.calc_speed = False
+
+        self.measured_pressure_var = StringVar(value="--- Pa")
+        self.set_pressure_var = StringVar(value="0")
+
+        ttk.Label(frame, text="Измеренное:").grid(row=0, column=0, padx=5, sticky='w')
+        ttk.Label(frame, textvariable=self.measured_pressure_var).grid(row=0, column=1, padx=5, sticky='w')
+
+        ttk.Label(frame, text="Уставка:").grid(row=1, column=0, padx=5, sticky='w')
+        self.pressure_spinbox = ttk.Spinbox(
+            frame, from_=0, to=10000, textvariable=self.set_pressure_var, width=10
+        )
+        self.pressure_spinbox.grid(row=1, column=1, padx=5)
+        ttk.Button(frame, text="Прочитать", command=self.model_flow_sensor.read_pressure).grid(row=1,
+                                                                                                 column=2, padx=5)
+        ttk.Button(frame, text="Применить", command=self._set_pressure).grid(row=1, column=3, padx=5)
+
+        cb = ttk.Checkbutton(frame, text="Скорость", variable=self.calc_speed, command=self._change_speed_press)
+        cb.grid(row=2, column=0, padx=5, sticky='w')
+
+    def _create_command_frame(self, parent):
+        """Создает фрейм команд"""
+        frame = ttk.LabelFrame(parent, text="Команды", padding="5")
+        frame.pack(fill='x', pady=10)
+
+        ttk.Button(frame, text="СТАРТ", command=self.model_flow_sensor.start).grid(
+            row=0, column=0, padx=5, pady=2)
+        ttk.Button(frame, text="СТОП", command=self.model_flow_sensor.stop).grid(
+            row=0, column=1, padx=5, pady=2)
+        ttk.Button(frame, text="СОХР.FLASH", command=self.model_flow_sensor.save_to_flash).grid(
+            row=0, column=2, padx=5, pady=2)
+
+        ttk.Button(frame, text="ОТКРЫТО", command=self.model_flow_sensor.open).grid(
+            row=1, column=0, padx=5, pady=2)
+        ttk.Button(frame, text="ЗАКРЫТО", command=self.model_flow_sensor.close).grid(
+            row=1, column=1, padx=5, pady=2)
+        ttk.Button(frame, text="СРЕДНЕЕ", command=self.model_flow_sensor.move_middle).grid(
+            row=1, column=2, padx=5, pady=2)
+
+        ttk.Button(frame, text="ПОЗИЦИЯ", command=self.model_flow_sensor.set_position).grid(
+            row=2, column=0, padx=5, pady=2)
+
+        ttk.Button(frame, text="ЗВУК", command=self.model_flow_sensor.sound).grid(
+            row=2, column=1, padx=5, pady=2)
+
+        # ttk.Button(frame, text="Мелодия", command=self._play_beep_melody).grid(
+        #     row=2, column=2, padx=5, pady=2
+        # )
+
+        for i in range(3):
+            frame.grid_columnconfigure(i, weight=1)
 
     def _create_log_frame(self, parent):
         frame = ttk.LabelFrame(parent, text="Журнал команд", padding=5)
@@ -367,7 +499,7 @@ class DeviceGUI:
 
     # ---------------- Логика ----------------
     def _refresh_ports(self):
-        ports = self.model.list_ports()
+        ports = self.model_auger.list_ports()
         if not ports:
             ports = ["Нет портов"]
         self.port_combo["values"] = ports
@@ -377,7 +509,7 @@ class DeviceGUI:
             self.port_var_desint.set(ports[0])
 
     def _find_device(self):
-        port = self.model.find_device()
+        port = self.model_auger.find_device()
         if port:
             self.port_var.set(port)
             self.append_command_log(f"✅ Устройство найдено на {port}")
@@ -385,17 +517,23 @@ class DeviceGUI:
             self.append_command_log("❌ Устройство не найдено")
 
     def _toggle_connection(self):
-        if self.model.is_connected():
-            self.model.disconnect()
+        if self.model_auger.is_connected():
+            self.model_auger.disconnect()
             self.append_command_log("Отключено")
             self.connect_btn.config(text="Подключить")
         else:
-            if self.model.connect(self.port_var.get(), self.baud_var.get()):
+            if self.model_auger.connect(self.port_var.get(), self.baud_var.get()):
                 self.append_command_log(f"Подключено: {self.port_var.get()} @ {self.baud_var.get()}")
                 self.connect_btn.config(text="Отключить")
                 self._read_settings()
             else:
                 messagebox.showerror("Ошибка", "Не удалось подключиться")
+
+        if self.model_flow_sensor.is_connected():
+            self.model_flow_sensor.disconnect()
+        else:
+            if self.model_flow_sensor.connect():
+                self.append_command_log(f"Подключено: flow_sensor")
 
     def _toggle_connection_desint(self):
         if self.desint_model:
@@ -409,35 +547,57 @@ class DeviceGUI:
                                             f"{self.baud_var_desint.get()}")
                 self.connect_btn_desint.config(text="Отключить")
 
+    def _set_pressure(self):
+        """Устанавливает давление"""
+        try:
+            self.model_flow_sensor.set_pressure_val(int(float(self.set_pressure_var.get()) * 10))
+        except ValueError:
+            self.append_command_log("Ошибка: введите число")
+
     def _apply_settings(self):
-        self.model.apply_settings(self.setting_vars)
+        self.model_auger.apply_settings(self.setting_vars)
         # for name, var in self.setting_vars.items():
         #     value = var.get()
         #     ok, msg = self.model.apply_setting(name, value)
         #     self.append_command_log(msg)
 
     def _read_settings(self):
-        settings = self.model.read_settings(self.setting_vars)
+        settings = self.model_auger.read_settings(self.setting_vars)
         for name, val in settings.items():
             if name in self.setting_vars:
                 self.setting_vars[name].set(val)
 
     def _update_status(self):
-        status = self.model.status_flags
+        status = self.model_auger.status_flags
         for name, val in status.items():
             if name in self.status_vars:
                 self.status_vars[name].set(val)
 
-        self.inning_speed.set(self.model.get_speed_m1())
-        self.rotate_speed.set(self.model.get_speed_m2())
+        self.inning_speed.set(self.model_auger.get_speed_m1())
+        self.rotate_speed.set(self.model_auger.get_speed_m2())
 
-        work_time = self.model.get_work_time()
+        work_time = self.model_auger.get_work_time()
         if work_time is not None:
             self.interval_work_auger.set(f"Время подачи пробы: {round(work_time, 1)} c")
 
         if self.desint_model and self.desint_model.is_connected() and self.desint_model.is_running:
-            if self.model.is_end_process():
+            if self.model_auger.is_end_process():
                 self.desint_model.send_end()
+
+        status = self.model_flow_sensor.status_flags
+        for name, val in status.items():
+            if name in self.status_vars_flow_sensor:
+                self.status_vars_flow_sensor[name].set(val)
+
+        pressure = self.model_flow_sensor.last_values_named['PRESSURE']
+        if pressure is not None:
+            self.measured_pressure_var.set(f"{pressure} Pa")
+        temperature = self.model_flow_sensor.last_values_named['TEMPERATURE']
+        if temperature is not None:
+            self.temperature_var.set(f"{temperature} °C")
+        position = self.model_flow_sensor.last_values_named['POSITION']
+        if position is not None:
+            self.position_text_var.set(f"Позиция изм.: {position}")
 
     def _update_interval_upd_data(self, interval):
         self.interval_upd_data.set(f"Обновление данных: {interval}мс")

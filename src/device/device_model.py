@@ -2,10 +2,11 @@ import time
 import queue
 import serial.tools.list_ports
 import src.constants as C
+from src.device.serial_device_controller import SerialDeviceController
 
 
-class DeviceModel:
-    def __init__(self, controller, config, poller=None, desint=None):
+class DeviceModelAuger:
+    def __init__(self, controller: SerialDeviceController, config, poller=None, desint=None):
         """
         :param controller: SerialDeviceController
         :param config: кортеж с настройками устройства и коэфф. пересчета
@@ -47,8 +48,6 @@ class DeviceModel:
         # Ускоренное движение назад инициализируется как буул вар в гуе
         self.increase_back_speed = None
         self.m1_back = False
-
-
 
         # подготовка очереди для непрерывного опроса
         if poller is not None:
@@ -195,7 +194,7 @@ class DeviceModel:
     def verify_device(self):
         try:
             val = self._read(C.REG_VERIFY)
-            if val == C.VERIFY_CODE:
+            if hex(val) == hex(C.VERIFY_CODE):
                 if self.command_loger is not None:
                     self.command_loger("Устройство опознано ✅")
             else:
@@ -332,6 +331,7 @@ class DeviceModel:
                         self.last_motor_period["PERIOD_M1"] = val
                     elif addr == C.REG_PERIOD_M2:
                         self.last_motor_period["PERIOD_M2"] = val
+
 
     def _update_status_flags(self, value: int):
         bits = [

@@ -5,9 +5,11 @@ import sys
 import queue
 from pathlib import Path
 from src.device.serial_device_controller import SerialDeviceController
+from src.device.device_controller import DeviceController
 from src.gui.gui import DeviceGUI
 from src.device.device_poller import DevicePoller
-from src.device.device_model import DeviceModel
+from src.device.device_model import DeviceModelAuger
+from src.device.device_model_flow_sensor import DeviceModelFlowSensor
 from src.fireballProxy.fireballProxy import FireballProxy
 from src.device.Desint_controller import ArduinoDesint
 
@@ -35,18 +37,28 @@ def main():
             "MOTOR_SPEED_2": 1405000
         }
 
-    controller = SerialDeviceController(
+    controllerAuger = SerialDeviceController(
         port=config.get("port", "COM3"),
         baudrate=config.get("baudrate", 38400),
         device_id=config.get("device_id", 3),
     )
 
-    # Создаем poller
-    poller = DevicePoller(controller, interval=0.005)
-    desint = ArduinoDesint()
-    model = DeviceModel(controller, config, poller, desint)
+    # TODO добавить нормальную загрузку настроек
+    controllerFlowSensor = DeviceController(
+        "10.116.220.101",
+        port=10555,
+        device_id=3
+    )
 
-    app = DeviceGUI(model, desint)
+    # Создаем poller
+    pollerAuger = DevicePoller(controllerAuger, interval=0.005)
+    pollerFlowSensor = DevicePoller(controllerFlowSensor, interval=0.005)
+
+    modelAuger = DeviceModelAuger(controllerAuger, config, pollerAuger)
+    modelFlowSensor = DeviceModelFlowSensor(controllerFlowSensor, poller=pollerFlowSensor)
+    desint = ArduinoDesint()
+
+    app = DeviceGUI(model_auger=modelAuger, desint_model=desint, model_flow_sensor=modelFlowSensor)
 
     # очередь для команд из FireballProxy
     cmd_queue = queue.Queue()
@@ -57,7 +69,7 @@ def main():
         claim_name="Генератор тока",
         forward_name="Генератор токла",
         command_queue=cmd_queue,
-        model=model,
+        model=modelAuger,
         desint_model=desint
     )
     proxy.start()

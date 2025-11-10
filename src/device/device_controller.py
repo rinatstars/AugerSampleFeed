@@ -5,13 +5,13 @@ import threading
 import time
 from queue import Queue
 
-from constants import (
+from src.constants_flow_sensor import (
     DEFAULT_PORT, DEFAULT_DEVICE_ID, RECONNECT_ATTEMPTS, RECONNECT_DELAY,
     READ_TIMEOUT, WRITE_TIMEOUT, REG_STATUS, REG_MEASURED_PRESSURE,
     REG_TEMPERATURE, REG_POSITION_LO, REG_POSITION_HI, REG_COMMAND, REG_SET_PRESSURE, REG_SET_POSITION,
     CMD_START, CMD_OPEN, CMD_CLOSE, CMD_STOP, CMD_SAVE_FLASH, CMD_MIDDLE_POSITION
 )
-from crc import crc7_generate
+from src.crc import crc7_generate
 
 
 class DeviceController:
@@ -24,7 +24,6 @@ class DeviceController:
         self.device_id = device_id & 0x07  # 3 бита (0-7)
         self.sock = None
         self.connection_lock = threading.Lock()
-        self._init_queues()
         self.running = False
         self.reconnect_attempts = RECONNECT_ATTEMPTS
         self.reconnect_delay = RECONNECT_DELAY
@@ -33,14 +32,6 @@ class DeviceController:
         self.t = threading.Thread()
         self.start_polling_time = time.time()
         self.func_calc_time = None
-
-    def _init_queues(self):
-        """Инициализация очередей для данных"""
-        self.status_queue = Queue(maxsize=100)
-        self.temperature_queue = Queue(maxsize=100)
-        self.position_queue_LO = Queue(maxsize=100)
-        self.position_queue_HI = Queue(maxsize=100)
-        self.measured_pressure_queue = Queue(maxsize=100)
 
     def _reconnect(self):
         """Пытается переподключиться к устройству"""
@@ -177,60 +168,10 @@ class DeviceController:
 
         return False
 
-    def start_polling(self, one_poll=False):
-        def polling_loop(one_poll=False):
-            polling_config = [
-                (REG_STATUS, self.status_queue),
-                (REG_MEASURED_PRESSURE, self.measured_pressure_queue),
-                (REG_TEMPERATURE, self.temperature_queue),
-                (REG_POSITION_LO, self.position_queue_LO),
-                (REG_POSITION_HI, self.position_queue_HI),
-            ]
-
-            def poll():
-                try:
-                    for addr, queue in polling_config:
-                        value = self.read_register(addr)
-                        if queue.full():
-                            queue.get()
-                        if value is not None:
-                            queue.put((addr, value))
-                        time.sleep(0.05)
-                except Exception as e:
-                    print(f"[polling_loop] Ошибка в цикле: {e}")
-
-            if one_poll:
-                poll()
-                return
-
-            while self.running:
-                poll()
-                period = int((time.time() - self.start_polling_time) * 1000)
-                self.start_polling_time = time.time()
-                if self.func_calc_time is not None:
-                    self.func_calc_time(period)
-
-        if one_poll:
-            polling_loop(one_poll=True)
-        if self.running:
-            self.start_polling_time = time.time()
-            return
-
-        if not one_poll:
-            self.running = True
-
-        self.t = threading.Thread(target=polling_loop, daemon=True)
-        self.t.start()
-
-    def stop_polling(self):
-        """Останавливает опрос данных"""
-        self.running = False
-
     def init_func_time_culc(self, func):
         self.func_calc_time = func
 
     def disconnect(self):
         """Закрывает соединение"""
-        self.stop_polling()
         with self.connection_lock:
             self._close_socket()

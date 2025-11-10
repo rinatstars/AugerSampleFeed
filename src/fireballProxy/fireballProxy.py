@@ -21,7 +21,7 @@ import win32api
 import ctypes
 from ctypes import wintypes
 import xml.etree.ElementTree as ET
-from src.device.device_model import DeviceModel
+from src.device.device_model import DeviceModelAuger
 from src.device.Desint_controller import ArduinoDesint
 import os
 
@@ -93,7 +93,7 @@ class FireballProxy:
         command_queue: Queue,
         send_timeout_ms: int = 5000,
         find_interval_sec: float = 1.0,
-        model: Optional[DeviceModel] = None,
+        model: Optional[DeviceModelAuger] = None,
         desint_model: Optional[ArduinoDesint] = None,
     ):
         self.claim_class = claim_class
