@@ -21,6 +21,7 @@ class DeviceGUI:
         """
         self.model: DeviceModel = model
         self.desint_model = desint_model
+        self.comand_loger_queue = []
         self.model.init_command_loger(self.append_command_log)
 
         self.window = tk.Tk()
@@ -279,7 +280,7 @@ class DeviceGUI:
         ttk.Label(frame, text="Настройка:").grid(row=6, column=0, sticky="w")
         ttk.Checkbutton(frame, text='Ускорить назад', variable=self.increase_back_speed).grid(row=6, column=1)
         ttk.Checkbutton(frame, text='Ручной старт', variable=self.manual).grid(row=6, column=2)
-        ttk.Checkbutton(frame, text='Ручной старт', variable=self.puring_end).grid(row=6, column=3)
+        ttk.Checkbutton(frame, text='Продувка', variable=self.puring_end).grid(row=6, column=3)
 
     def start_process(self):
         if self.manual.get():
@@ -456,6 +457,7 @@ class DeviceGUI:
         self.model.increase_back_speed = self.increase_back_speed.get()
         self.model.manual = self.manual.get()
         self.model.puring_end = self.puring_end.get()
+        self.append_command_log_queue()
 
     def _update_interval_upd_data(self, interval):
         self.interval_upd_data.set(f"Обновление данных: {interval}мс")
@@ -471,12 +473,17 @@ class DeviceGUI:
         if self.window.winfo_exists():
             self.window.after(next_interval, self._start_background_tasks)
 
-    def append_command_log(self, message: str, msg_type: str ='info'):
-        self.command_output.insert("end", message + "\n")
-        start_index = f"end-{len(message) + 2}c"  # +1 для символа новой строки
-        end_index = "end-1c"
-        self.command_output.tag_add(msg_type, start_index, end_index)
-        self.command_output.see("end")
+    def append_command_log(self, message: str, msg_type="info"):
+        self.comand_loger_queue.append([message, msg_type])
+
+    def append_command_log_queue(self):
+        for message, msg_type in self.comand_loger_queue:
+            self.command_output.insert("end", message + "\n")
+            self.command_output.see("end")
+            start_index = f"end-{len(message) + 2}c"  # +1 для символа новой строки
+            end_index = "end-1c"
+            self.command_output.tag_add(msg_type, start_index, end_index)
+        self.comand_loger_queue.clear()
 
     def run(self):
         self.window.mainloop()

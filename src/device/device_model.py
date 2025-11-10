@@ -273,7 +273,7 @@ class DeviceModel:
         """Принимает dict name->value из GUI, конвертирует и пишет"""
         MOTOR_SPEED_1 = self.config['MOTOR_SPEED_1']
         MOTOR_SPEED_2 = self.config['MOTOR_SPEED_2']
-        self.settings_vars = settings_vars
+        self.settings_vars = settings_vars.copy()
 
         for name, value in settings_vars.items():
             self.settings_vars_str[name] = str(value.get())
