@@ -22,6 +22,9 @@ class DeviceModel:
         self.manual_start = False
         self.manual_start_time = time.time()
 
+        self.puring_end = False
+        self.puring_time_counter = [time.time(), 0, False]
+
 
         # Храним статусы и последние значения
         self.status_flags = {}
@@ -47,9 +50,6 @@ class DeviceModel:
 
         self.delta_time = time.time()
         self.position = 0
-
-        self.puring_end = False
-        self.puring_time_counter = [time.time(), 0, False]
 
         # Ускоренное движение назад инициализируется как буул вар в гуе
         self.increase_back_speed = None
