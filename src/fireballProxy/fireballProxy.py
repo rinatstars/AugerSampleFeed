@@ -366,13 +366,13 @@ class FireballProxy:
             intr_system = ET.SubElement(root, "Auger_sample_introduction_system")
 
             if self.model is not None:
-                s = self.model.settings_vars
+                s = self.model.settings_vars_str
                 if len(s):
-                    ET.SubElement(intr_system, "PERIOD_M1").text = str(s.get('SET_PERIOD_M1').get())
-                    ET.SubElement(intr_system, "PERIOD_M2").text = str(s.get('SET_PERIOD_M2').get())
-                    ET.SubElement(intr_system, "T_START").text = str(s.get('T_START').get())
-                    ET.SubElement(intr_system, "T_GRIND").text = str(s.get('T_GRIND').get())
-                    ET.SubElement(intr_system, "T_PURGING").text = str(s.get('T_PURGING').get())
+                    ET.SubElement(intr_system, "PERIOD_M1").text = s['SET_PERIOD_M1']
+                    ET.SubElement(intr_system, "PERIOD_M2").text = s['SET_PERIOD_M2']
+                    ET.SubElement(intr_system, "T_START").text = s['T_START']
+                    ET.SubElement(intr_system, "T_GRIND").text = s['T_GRIND']
+                    ET.SubElement(intr_system, "T_PURGING").text = s['T_PURGING']
 
             if self.desint_model is not None:
                 # Дезинтегратор

@@ -34,6 +34,7 @@ class DeviceModel:
             "T_PURGING": {"default": 3000, "alias": "Время продувки, мс"},
         }
         self.settings_vars = {}
+        self.settings_vars_str = {}
         self.last_motor_period = {
             "PERIOD_M1": 0,
             "PERIOD_M2": 0,
@@ -129,7 +130,7 @@ class DeviceModel:
         self.manual_start = True
         self.manual_start_time = time.time()
         self.on_desint = on_desint
-        self.command_loger(f'Старт инициализирован')
+        self.command_loger(f'Старт инициализирован', 'success')
 
     def start_process_manual(self):
         self.manual_start = False
@@ -141,7 +142,7 @@ class DeviceModel:
     def stop_process_manual(self):
         if self.manual_start:
             self.manual_start = False
-            print('Старт отменён')
+            self.command_loger(f'Старт отменён', 'warning')
 
         if not self.is_end_process():
             self.motor1_stop()
@@ -271,6 +272,7 @@ class DeviceModel:
         self.settings_vars = settings_vars
 
         for name, value in settings_vars.items():
+            self.settings_vars_str[name] = str(value.get())
             reg = C.REGISTERS_MAP.get(name)
             if reg is None:
                 continue
@@ -381,7 +383,7 @@ class DeviceModel:
 
     def _set_back_speed(self):
         try:
-            if self.increase_back_speed.get():
+            if self.increase_back_speed:
                 if self.status_flags.get("M1_BACK") and not self.m1_back:
                     reg_addr = C.REGISTERS_MAP.get('SET_PERIOD_M1')
                     self._write(reg_addr, int(5000))
