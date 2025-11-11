@@ -389,7 +389,7 @@ class DeviceGUI:
         frame_progress = ttk.Frame(parent)
         frame_progress.pack(fill='x', pady=5)
 
-        self.progress = ttk.Progressbar(frame_progress, mode='determinate', height=5)
+        self.progress = ttk.Progressbar(frame_progress, mode='determinate')
         self.progress.pack(fill='x', padx=5)
 
     def _create_status_frame_flow_sensor(self, parent):
@@ -624,7 +624,7 @@ class DeviceGUI:
             self.interval_work_auger.set(f"Время подачи пробы: {round(work_time, 1)} c")
 
         self.position_work_auger.set(f"Положение шнека: {round(position, 2)} мм")
-        self.progress['value'] = round(position / 8.4 * 100)
+        self.progress['value'] = min(round(position / 8.4 * 100), 100)
 
         if self.desint_model and self.desint_model.is_connected() and self.desint_model.is_running:
             if self.model_auger.is_end_process():
