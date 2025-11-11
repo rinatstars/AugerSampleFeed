@@ -142,6 +142,10 @@ class DeviceModelFlowSensor:
         except ValueError:
             self._log("Ошибка: введите число")
 
+    def read_set_pressure(self):
+        """Читает установленное давление"""
+        return self._read(C.REG_SET_PRESSURE) / 10
+
     # ------------------- Работа с поллером -------------------
 
     def update_from_poller(self):

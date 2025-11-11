@@ -23,6 +23,9 @@ class DeviceModelAuger:
         self.manual_start = False
         self.manual_start_time = time.time()
 
+        self.puring_end = False
+        self.puring_time_counter = [time.time(), 0, False]
+
 
         # Храним статусы и последние значения
         self.status_flags = {}
@@ -35,6 +38,7 @@ class DeviceModelAuger:
             "T_PURGING": {"default": 3000, "alias": "Время продувки, мс"},
         }
         self.settings_vars = {}
+        self.settings_vars_str = {}
         self.last_motor_period = {
             "PERIOD_M1": 0,
             "PERIOD_M2": 0,
@@ -42,8 +46,11 @@ class DeviceModelAuger:
         self.last_values = {}
 
         # Таймер подачи пробы
-        self.start_time = 0
+        self.start_time = time.time()
         self.end_time = None
+
+        self.delta_time = time.time()
+        self.position = 0
 
         # Ускоренное движение назад инициализируется как буул вар в гуе
         self.increase_back_speed = None
@@ -128,6 +135,7 @@ class DeviceModelAuger:
         self.manual_start = True
         self.manual_start_time = time.time()
         self.on_desint = on_desint
+        self.command_loger(f'Старт инициализирован', 'success')
 
     def start_process_manual(self):
         self.manual_start = False
@@ -137,6 +145,10 @@ class DeviceModelAuger:
             self.desint.send_start()
 
     def stop_process_manual(self):
+        if self.manual_start:
+            self.manual_start = False
+            self.command_loger(f'Старт отменён', 'warning')
+
         if not self.is_end_process():
             self.motor1_stop()
             self.motor2_stop()
@@ -194,13 +206,18 @@ class DeviceModelAuger:
     def verify_device(self):
         try:
             val = self._read(C.REG_VERIFY)
-            if hex(val) == hex(C.VERIFY_CODE):
+            # Проверяем, что первые 4 бита (1 hex цифра) равны 0x5
+            # и следующие 4 бита (следующая hex цифра) равны 0x6
+            if (val >> 8) & 0xFF == 0x56:
                 if self.command_loger is not None:
-                    self.command_loger("Устройство опознано ✅")
+                    # Извлекаем версию из младших битов (предполагая, что версия в последних 8 битах)
+                    version = val & 0xFF
+                    self.command_loger(f"Устройство опознано ✅ Версия: 0.{version}")
+                return True
             else:
                 if self.command_loger is not None:
-                    self.command_loger(f"Ошибка: код {val}, ожидалось {hex(C.VERIFY_CODE)}")
-            return val == C.VERIFY_CODE
+                    self.command_loger(f"Ошибка: код {hex(val)}, ожидалось начало 0x56XX")
+                return False
         except Exception as e:
             if self.command_loger is not None:
                 self.command_loger(f"Ошибка чтения: {e}")
@@ -262,9 +279,10 @@ class DeviceModelAuger:
         """Принимает dict name->value из GUI, конвертирует и пишет"""
         MOTOR_SPEED_1 = self.config['MOTOR_SPEED_1']
         MOTOR_SPEED_2 = self.config['MOTOR_SPEED_2']
-        self.settings_vars = settings_vars
+        self.settings_vars = settings_vars.copy()
 
         for name, value in settings_vars.items():
+            self.settings_vars_str[name] = str(value.get())
             reg = C.REGISTERS_MAP.get(name)
             if reg is None:
                 continue
@@ -332,6 +350,12 @@ class DeviceModelAuger:
                     elif addr == C.REG_PERIOD_M2:
                         self.last_motor_period["PERIOD_M2"] = val
 
+    def go_back(self):
+        self.motor2_forward()
+        self.motor1_backward()
+        if self.puring_end:
+            self.puring_time_counter = [time.time(), 0, True]
+            self.valve2_on()
 
     def _update_status_flags(self, value: int):
         bits = [
@@ -342,18 +366,13 @@ class DeviceModelAuger:
             self.status_flags[bit] = bool(value & (1 << i))
 
         # управление временем подачи
-        if self.status_flags.get("BEG_BLK"):
-            self.start_time = time.time()
-            self.end_time = None
-        if self.status_flags.get("END_BLK") and self.end_time is None:
-            self.end_time = time.time()
+        self.find_property_auger()
 
         # Управление повышением скорости назад
         self._set_back_speed()
 
         if self.manual and self.is_end_blk() and not self.is_end_process():
-            self.motor2_forward()
-            self.motor1_backward()
+            self.go_back()
 
         if self.is_beg_blk() and self.is_m2_run() and not self.is_m1_run():
             self.motor2_stop()
@@ -371,9 +390,38 @@ class DeviceModelAuger:
                 self.manual_start = False
                 self.start_process_manual()
 
+        if self.puring_time_counter[2]:
+            if (time.time() - self.puring_time_counter[0]) * 1000 > self.settings_vars.get('T_PURGING').get():
+                if self.status_flags.get('VALVE2_ON'):
+                    self.valve2_off()
+                else:
+                    self.valve2_on()
+                self.puring_time_counter[0] = time.time()
+                self.puring_time_counter[1] += 1
+            if self.puring_time_counter[1] > 6:
+                self.puring_time_counter = [time.time(), 0, False]
+                self.valve2_off()
+
+
+    def find_property_auger(self):
+        if self.status_flags.get("BEG_BLK") and not self.is_m1_run():
+            self.start_time = time.time()
+            self.position = 0
+            self.end_time = None
+        if self.status_flags.get("END_BLK") and self.end_time is None:
+            self.end_time = time.time()
+
+        if self.status_flags.get("M1_FWD"):
+            speed = self.period_to_speed_m1(self.last_motor_period["PERIOD_M1"])
+            self.position += speed * (time.time() - self.delta_time) / 60
+        if self.status_flags.get("M1_BACK"):
+            speed = self.period_to_speed_m1(self.last_motor_period["PERIOD_M1"])
+            self.position -= speed * (time.time() - self.delta_time) / 60
+        self.delta_time = time.time()
+
     def _set_back_speed(self):
         try:
-            if self.increase_back_speed.get():
+            if self.increase_back_speed:
                 if self.status_flags.get("M1_BACK") and not self.m1_back:
                     reg_addr = C.REGISTERS_MAP.get('SET_PERIOD_M1')
                     self._write(reg_addr, int(5000))

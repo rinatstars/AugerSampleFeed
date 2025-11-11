@@ -23,6 +23,7 @@ from ctypes import wintypes
 import xml.etree.ElementTree as ET
 from src.device.device_model import DeviceModelAuger
 from src.device.Desint_controller import ArduinoDesint
+from src.device.device_model_flow_sensor import DeviceModelFlowSensor
 import os
 
 # FIXME логер может не работать, закоментил
@@ -95,6 +96,7 @@ class FireballProxy:
         find_interval_sec: float = 1.0,
         model: Optional[DeviceModelAuger] = None,
         desint_model: Optional[ArduinoDesint] = None,
+        flow_sensor_model: Optional[DeviceModelFlowSensor] = None,
     ):
         self.claim_class = claim_class
         self.claim_name = claim_name
@@ -112,6 +114,7 @@ class FireballProxy:
 
         self.model = model
         self.desint_model = desint_model
+        self.flow_sensor_model = flow_sensor_model
 
         # logger.debug("FireballProxy инициализирован (mask='%s', forward='%s')", claim_name, forward_name)
 
@@ -172,10 +175,12 @@ class FireballProxy:
                     win32gui.PumpWaitingMessages()
                 except Exception as e:
                     # logger.exception(f"[FireballProxy] Pump error: {e}")
+                    print(f"[FireballProxy] Pump error: {e}")
                     pass
                 time.sleep(0.01)
         except Exception as e:
             # logger.exception(f"[FireballProxy] Pump exception: {e}")
+            print(f"[FireballProxy] Pump exception: {e}")
             pass
         finally:
             pythoncom.CoUninitialize()
@@ -282,6 +287,7 @@ class FireballProxy:
             return res
         except Exception as e:
             # logger.error("Ошибка при пересылке сообщения 0x%X: %s", msg, e)
+            print(f"[FireballProxy] Ошибка при пересылки сообщения: {e}")
             self._target_hwnd = None
             return None
 
@@ -363,19 +369,25 @@ class FireballProxy:
             intr_system = ET.SubElement(root, "Auger_sample_introduction_system")
 
             if self.model is not None:
-                s = self.model.settings_vars
+                s = self.model.settings_vars_str
                 if len(s):
-                    ET.SubElement(intr_system, "PERIOD_M1").text = str(s.get('SET_PERIOD_M1').get())
-                    ET.SubElement(intr_system, "PERIOD_M2").text = str(s.get('SET_PERIOD_M2').get())
-                    ET.SubElement(intr_system, "T_START").text = str(s.get('T_START').get())
-                    ET.SubElement(intr_system, "T_GRIND").text = str(s.get('T_GRIND').get())
-                    ET.SubElement(intr_system, "T_PURGING").text = str(s.get('T_PURGING').get())
+                    ET.SubElement(intr_system, "PERIOD_M1").text = s['SET_PERIOD_M1']
+                    ET.SubElement(intr_system, "PERIOD_M2").text = s['SET_PERIOD_M2']
+                    ET.SubElement(intr_system, "T_START").text = s['T_START']
+                    ET.SubElement(intr_system, "T_GRIND").text = s['T_GRIND']
+                    ET.SubElement(intr_system, "T_PURGING").text = s['T_PURGING']
 
             if self.desint_model is not None:
                 # Дезинтегратор
                 desint = ET.SubElement(root, "desint")
                 ET.SubElement(desint, "frequence").text = f"{self.desint_model.frequence}"
                 ET.SubElement(desint, "timeon").text = f"{self.desint_model.timeon}"
+
+            if self.flow_sensor_model is not None:
+                flow_sensor = ET.SubElement(root, "flow_sensor")
+                ET.SubElement(flow_sensor, "PRESSURE").text = f"{self.flow_sensor_model.last_values_named['PRESSURE']}"
+                ET.SubElement(flow_sensor, "TEMPERATURE").text = f"{self.flow_sensor_model.last_values_named['TEMPERATURE']}"
+                ET.SubElement(flow_sensor, "POSITION").text = f"{self.flow_sensor_model.last_values_named['POSITION']}"
 
             return ET.tostring(root, encoding="utf-8").decode("utf-8")
 

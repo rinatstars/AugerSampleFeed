@@ -108,7 +108,7 @@ class ArduinoDesint:
                 print(f"Attempt reconnected: {e}")
                 self.disconnect()
                 self.connect()
-                time.sleep(1)
+                time.sleep(0.5)
                 command = f"COMAND:0\n"
                 self.ser.write(command.encode())
                 self.is_running = False

@@ -28,7 +28,7 @@ REG_COM_V1 = 0x0B
 REG_COM_V2 = 0x0C
 
 REG_VERIFY = 0x20
-VERIFY_CODE = 0x5601  # Код идентификации устройства
+VERIFY_CODE = 0x5602  # Код идентификации устройства
 
 # Биты статуса
 FS_START = 0

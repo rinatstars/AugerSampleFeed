@@ -54,9 +54,9 @@ def main():
     pollerAuger = DevicePoller(controllerAuger, interval=0.005)
     pollerFlowSensor = DevicePoller(controllerFlowSensor, interval=0.005)
 
-    modelAuger = DeviceModelAuger(controllerAuger, config, pollerAuger)
-    modelFlowSensor = DeviceModelFlowSensor(controllerFlowSensor, poller=pollerFlowSensor)
     desint = ArduinoDesint()
+    modelAuger = DeviceModelAuger(controllerAuger, config, pollerAuger, desint)
+    modelFlowSensor = DeviceModelFlowSensor(controllerFlowSensor, poller=pollerFlowSensor)
 
     app = DeviceGUI(model_auger=modelAuger, desint_model=desint, model_flow_sensor=modelFlowSensor)
 
@@ -70,18 +70,24 @@ def main():
         forward_name="Генератор токла",
         command_queue=cmd_queue,
         model=modelAuger,
-        desint_model=desint
+        desint_model=desint,
+        flow_sensor_model=modelFlowSensor
     )
     proxy.start()
 
     # функция обработки команд из очереди
     def process_commands():
         while not cmd_queue.empty():
-            cmd = cmd_queue.get_nowait()
-            if cmd == "START":
-                app.start_process()
-            elif cmd == "STOP":
+            try:
+                cmd = cmd_queue.get_nowait()
+                if cmd == "START":
+                    app.start_process()
+                elif cmd == "STOP":
+                    app.stop_process()
+            except Exception as e:
+                print(f'[ERROR] process_commands: {e}')
                 app.stop_process()
+
         app.window.after(100, process_commands)
 
     # запуск цикла обработки команд

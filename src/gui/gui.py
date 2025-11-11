@@ -26,6 +26,7 @@ class DeviceGUI:
         self.model_flow_sensor: DeviceModelFlowSensor = model_flow_sensor
         self.model_auger.init_command_loger(self.append_command_log)
         self.model_flow_sensor.init_command_logger(self.append_command_log)
+        self.comand_loger_queue = []
 
         self.window = tk.Tk()
         self.window.title("Auger sample introduction system")
@@ -36,6 +37,7 @@ class DeviceGUI:
         self.interval_polling = StringVar(value="Обновление окна: ---мс")
         self.interval_upd_data = StringVar(value="Обновление данных: ---мс")
         self.interval_work_auger = StringVar(value="Время подачи пробы: ---с")
+        self.position_work_auger = StringVar(value="Положение шнека: ---мм")
 
         self.text_press = "Давление"
 
@@ -269,9 +271,9 @@ class DeviceGUI:
 
         ttk.Button(frame, text="СТАРТ", command=self.start_process).grid(row=0, column=0, padx=5)
 
-        ttk.Label(frame, text="Ручн.:").grid(row=0, column=1, sticky="w")
-        ttk.Button(frame, text="СТАРТ", command=self.start_process_manual).grid(row=0, column=2, padx=5)
-        ttk.Button(frame, text="СТОП", command=self.stop_process_manual).grid(row=0, column=3, padx=5)
+        ttk.Button(frame, text="СТАРТ Ручн.", command=self.start_process_manual).grid(row=0, column=1, padx=5)
+        ttk.Button(frame, text="СТОП", command=self.stop_process_manual).grid(row=0, column=2, padx=5)
+        ttk.Button(frame, text="НАЗАД", command=self.model_auger.go_back).grid(row=0, column=3, padx=5)
 
         ttk.Label(frame, text="Мотор 1:").grid(row=1, column=0, sticky="w")
         ttk.Button(frame, text="Вперёд", command=self.model_auger.motor1_forward).grid(row=1, column=1)
@@ -291,14 +293,16 @@ class DeviceGUI:
         ttk.Button(frame, text="Открыть", command=self.model_auger.valve2_on).grid(row=4, column=1)
         ttk.Button(frame, text="Закрыть", command=self.model_auger.valve2_off).grid(row=4, column=2)
 
-        self.model_auger.increase_back_speed = BooleanVar(value=False)
-        self.model_auger.manual = BooleanVar(value=False)
+        self.increase_back_speed = BooleanVar(value=True)
+        self.manual = BooleanVar(value=True)
+        self.puring_end = BooleanVar(value=True)
         ttk.Label(frame, text="Настройка:").grid(row=6, column=0, sticky="w")
-        ttk.Checkbutton(frame, text='Ускорить назад', variable=self.model_auger.increase_back_speed).grid(row=6, column=1)
-        ttk.Checkbutton(frame, text='Ручной старт', variable=self.model_auger.manual).grid(row=6, column=2)
+        ttk.Checkbutton(frame, text='Ускорить назад', variable=self.increase_back_speed).grid(row=6, column=1)
+        ttk.Checkbutton(frame, text='Ручной старт', variable=self.manual).grid(row=6, column=2)
+        ttk.Checkbutton(frame, text='Продувка', variable=self.puring_end).grid(row=6, column=3)
 
     def start_process(self):
-        if self.model_auger.manual.get():
+        if self.manual.get():
             self.start_process_manual()
             return
         self.model_auger.start_process()
@@ -306,7 +310,7 @@ class DeviceGUI:
             self.desint_model.send_start()
 
     def stop_process(self):
-        if self.model_auger.manual.get():
+        if self.manual.get():
             self.stop_process_manual()
             return
         self.model_auger.stop_process()
@@ -314,7 +318,6 @@ class DeviceGUI:
             self.desint_model.send_end()
 
     def start_process_manual(self):
-
         self.model_auger.start_process_manual_init(self.on_desint.get())
 
     def stop_process_manual(self):
@@ -365,6 +368,7 @@ class DeviceGUI:
         frame = ttk.LabelFrame(parent, text="Время работы", padding="5")
         frame.pack(fill='x', pady=5)
         ttk.Label(frame, textvariable=self.interval_work_auger).grid(row=0, column=0, padx=5, sticky='w')
+        ttk.Label(frame, textvariable=self.position_work_auger).grid(row=0, column=1, padx=5, sticky='w')
 
     def _create_status_frame_flow_sensor(self, parent):
         """Создает фрейм статуса"""
@@ -443,7 +447,7 @@ class DeviceGUI:
             frame, from_=0, to=10000, textvariable=self.set_pressure_var, width=10
         )
         self.pressure_spinbox.grid(row=1, column=1, padx=5)
-        ttk.Button(frame, text="Прочитать", command=self.model_flow_sensor.read_pressure).grid(row=1,
+        ttk.Button(frame, text="Прочитать", command=self._read_set_pressure).grid(row=1,
                                                                                                  column=2, padx=5)
         ttk.Button(frame, text="Применить", command=self._set_pressure).grid(row=1, column=3, padx=5)
 
@@ -488,6 +492,13 @@ class DeviceGUI:
 
         self.command_output = scrolledtext.ScrolledText(frame, wrap="word", state="normal")
         self.command_output.pack(fill="both", expand=True)
+
+        self.command_output.tag_config("success", foreground="green")
+        self.command_output.tag_config("error", foreground="red")
+        self.command_output.tag_config("warning", foreground="orange")
+        self.command_output.tag_config("info", foreground="black")
+        self.command_output.tag_config("command", foreground="purple")
+        self.command_output.tag_config("device", foreground="brown")
 
         def disable_typing(event):
             if (event.state & 0x4) and event.keysym in ("c", "a"):
@@ -557,6 +568,12 @@ class DeviceGUI:
         except ValueError:
             self.append_command_log("Ошибка: введите число")
 
+    def _read_set_pressure(self):
+        try:
+            self.set_pressure_var.set(self.model_flow_sensor.read_set_pressure())
+        except Exception as e:
+            self.append_command_log(f"Ошибка чтения давления: {e}")
+
     def _apply_settings(self):
         self.model_auger.apply_settings(self.setting_vars)
         # for name, var in self.setting_vars.items():
@@ -580,12 +597,20 @@ class DeviceGUI:
         self.rotate_speed.set(self.model_auger.get_speed_m2())
 
         work_time = self.model_auger.get_work_time()
+        position = self.model_auger.position
         if work_time is not None:
             self.interval_work_auger.set(f"Время подачи пробы: {round(work_time, 1)} c")
+
+        self.position_work_auger.set(f"Положение шнека: {round(position, 2)} мм")
 
         if self.desint_model and self.desint_model.is_connected() and self.desint_model.is_running:
             if self.model_auger.is_end_process():
                 self.desint_model.send_end()
+
+        self.model_auger.increase_back_speed = self.increase_back_speed.get()
+        self.model_auger.manual = self.manual.get()
+        self.model_auger.puring_end = self.puring_end.get()
+        self.append_command_log_queue()
 
         status = self.model_flow_sensor.status_flags
         for name, val in status.items():
@@ -616,9 +641,17 @@ class DeviceGUI:
         if self.window.winfo_exists():
             self.window.after(next_interval, self._start_background_tasks)
 
-    def append_command_log(self, message: str):
-        self.command_output.insert("end", message + "\n")
-        self.command_output.see("end")
+    def append_command_log(self, message: str, msg_type="info"):
+        self.comand_loger_queue.append([message, msg_type])
+
+    def append_command_log_queue(self):
+        for message, msg_type in self.comand_loger_queue:
+            self.command_output.insert("end", message + "\n")
+            self.command_output.see("end")
+            start_index = f"end-{len(message) + 2}c"  # +1 для символа новой строки
+            end_index = "end-1c"
+            self.command_output.tag_add(msg_type, start_index, end_index)
+        self.comand_loger_queue.clear()
 
     def run(self):
         self.window.mainloop()
