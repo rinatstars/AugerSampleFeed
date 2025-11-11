@@ -3,13 +3,10 @@
 import socket
 import threading
 import time
-from queue import Queue
-
+from typing import Optional
 from src.constants_flow_sensor import (
     DEFAULT_PORT, DEFAULT_DEVICE_ID, RECONNECT_ATTEMPTS, RECONNECT_DELAY,
-    READ_TIMEOUT, WRITE_TIMEOUT, REG_STATUS, REG_MEASURED_PRESSURE,
-    REG_TEMPERATURE, REG_POSITION_LO, REG_POSITION_HI, REG_COMMAND, REG_SET_PRESSURE, REG_SET_POSITION,
-    CMD_START, CMD_OPEN, CMD_CLOSE, CMD_STOP, CMD_SAVE_FLASH, CMD_MIDDLE_POSITION
+    READ_TIMEOUT, WRITE_TIMEOUT
 )
 from src.crc import crc7_generate
 
@@ -22,7 +19,7 @@ class DeviceController:
         self.ip = ip
         self.port = port
         self.device_id = device_id & 0x07  # 3 бита (0-7)
-        self.sock = None
+        self.sock: Optional[socket.socket] = None
         self.connection_lock = threading.Lock()
         self.running = False
         self.reconnect_attempts = RECONNECT_ATTEMPTS
@@ -69,7 +66,8 @@ class DeviceController:
             self.sock.settimeout(1)
             self.sock.sendall(b'')  # Тестовый пустой пакет
             return True
-        except Exception:
+        except (socket.timeout, socket.error, ConnectionError) as e:
+            print(f"Ошибка связи сокета: {e}")
             return self._reconnect()
 
     def connect(self):
@@ -116,7 +114,7 @@ class DeviceController:
         """Чтение регистра с автоматическим переподключением"""
         for attempt in range(3):
             try:
-                if not self._ensure_connection():
+                if not self._ensure_connection() or self.sock is None:
                     continue
 
                 request = self._build_frame(address, write=False)
@@ -125,7 +123,7 @@ class DeviceController:
                 response = self.sock.recv(5)
 
                 if not response:
-                    raise socket.timeout("Пустой ответ от устройства")
+                    raise socket.error("Пустой ответ от устройства")
 
                 return self._parse_response(response, address)
 
@@ -144,7 +142,7 @@ class DeviceController:
         """Запись регистра с автоматическим переподключением"""
         for attempt in range(3):
             try:
-                if not self._ensure_connection():
+                if not self._ensure_connection() or self.sock is None:
                     continue
 
                 request = self._build_frame(address, write=True, data=value)
@@ -153,7 +151,7 @@ class DeviceController:
                 response = self.sock.recv(5)
 
                 if not response:
-                    raise socket.timeout("Пустой ответ")
+                    raise socket.error("Пустой ответ")
 
                 return self._parse_response(response, address) is not None
 

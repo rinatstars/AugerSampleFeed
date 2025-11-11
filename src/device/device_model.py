@@ -26,7 +26,6 @@ class DeviceModelAuger:
         self.puring_end = False
         self.puring_time_counter = [time.time(), 0, False]
 
-
         # Храним статусы и последние значения
         self.status_flags = {}
         self._update_status_flags(0)
@@ -113,10 +112,8 @@ class DeviceModelAuger:
         for port in self.list_ports(only_with_vidpid=True):
             self.controller.connect(port=port, timeout=0.02)
             if self.verify_device():
-                self.port = port
                 self.controller.disconnect()
                 return port
-            #self.controller.disconnect()
         return None
 
     # ------------------- Управление -------------------
@@ -313,6 +310,7 @@ class DeviceModelAuger:
             reg = C.REGISTERS_MAP.get(name)
             if reg is None:
                 continue
+            val = None
             try:
                 val = self._read(reg)
             except Exception as e:
@@ -402,7 +400,6 @@ class DeviceModelAuger:
                 self.puring_time_counter = [time.time(), 0, False]
                 self.valve2_off()
 
-
     def find_property_auger(self):
         if self.status_flags.get("BEG_BLK") and not self.is_m1_run():
             self.start_time = time.time()
@@ -431,6 +428,7 @@ class DeviceModelAuger:
                     self.m1_back = False
         except AttributeError:
             pass
+
     def get_work_time(self):
         if self.end_time:
             return round(self.end_time - self.start_time, 1)

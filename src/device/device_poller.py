@@ -1,5 +1,6 @@
 import time
 import threading
+from typing import Union
 from src.device.serial_device_controller import SerialDeviceController
 from src.device.device_controller import DeviceController
 
@@ -7,10 +8,9 @@ from src.device.device_controller import DeviceController
 class DevicePoller:
     """Фоновый опрос устройства в отдельном потоке"""
 
-    def __init__(self, controller: SerialDeviceController | DeviceController, interval=0.01):
+    def __init__(self, controller: Union[SerialDeviceController, DeviceController], interval=0.01):
         """
         :param controller: экземпляр SerialDeviceController
-        :param polling_config: список (addr, queue)
         :param interval: задержка между регистрами
         """
         self.controller = controller

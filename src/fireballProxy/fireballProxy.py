@@ -12,7 +12,6 @@ from __future__ import annotations
 import time
 import threading
 import pythoncom
-import logging
 from typing import Optional, Dict
 from queue import Queue
 import win32gui
@@ -82,6 +81,7 @@ kernel32.CloseHandle.restype = wintypes.BOOL
 
 FILE_MAP_ALL_ACCESS = 0xF001F
 PAGE_READWRITE = 0x04
+
 
 class FireballProxy:
     """Прокси сообщений между Атомом и Генератором тока."""
@@ -386,7 +386,8 @@ class FireballProxy:
             if self.flow_sensor_model is not None:
                 flow_sensor = ET.SubElement(root, "flow_sensor")
                 ET.SubElement(flow_sensor, "PRESSURE").text = f"{self.flow_sensor_model.last_values_named['PRESSURE']}"
-                ET.SubElement(flow_sensor, "TEMPERATURE").text = f"{self.flow_sensor_model.last_values_named['TEMPERATURE']}"
+                ET.SubElement(flow_sensor, "TEMPERATURE").text = \
+                    f"{self.flow_sensor_model.last_values_named['TEMPERATURE']}"
                 ET.SubElement(flow_sensor, "POSITION").text = f"{self.flow_sensor_model.last_values_named['POSITION']}"
 
             return ET.tostring(root, encoding="utf-8").decode("utf-8")

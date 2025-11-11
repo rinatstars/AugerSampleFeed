@@ -1,15 +1,12 @@
-import time
 import queue
-import serial.tools.list_ports
 import src.constants_flow_sensor as C
+from typing import Optional
 from src.device.device_controller import DeviceController
 from src.device.device_poller import DevicePoller
 
-# TODO создать класс DeviceModel для flowsensor
-
 
 class DeviceModelFlowSensor:
-    def __init__(self, controller: DeviceController, config=None, poller: DevicePoller | None = None):
+    def __init__(self, controller: DeviceController, config=None, poller: Optional[DevicePoller] = None):
         """
         :param controller: экземпляр TCP DeviceController
         :param config: словарь с параметрами (может быть None)
@@ -175,7 +172,6 @@ class DeviceModelFlowSensor:
                         position -= 0x4000  # вычитаем 2^14 для получения отрицательного значения
 
                     self.last_values_named['POSITION'] = position
-
 
     def _update_status_flags(self, value):
         bits = [

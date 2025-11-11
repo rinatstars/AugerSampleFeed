@@ -26,7 +26,7 @@ class DeviceGUI:
         self.model_flow_sensor: DeviceModelFlowSensor = model_flow_sensor
         self.model_auger.init_command_loger(self.append_command_log)
         self.model_flow_sensor.init_command_logger(self.append_command_log)
-        self.comand_loger_queue = []
+        self.command_logier_queue = []
 
         self.window = tk.Tk()
         self.window.title("Auger sample introduction system")
@@ -199,6 +199,7 @@ class DeviceGUI:
             # Человеческое поле
             ttk.Label(frame, text=meta["alias"]).grid(row=i, column=0, sticky="w")
             var_human = tk.DoubleVar(value=meta["default"])
+            var_raw = tk.DoubleVar(value=meta["default"])
             spin_human = ttk.Spinbox(frame, from_=0, to=100000, increment=1,
                                      textvariable=var_human, width=10)
             spin_human.grid(row=i, column=1, sticky="w")
@@ -219,10 +220,9 @@ class DeviceGUI:
 
             # Связь двух полей
             var_human.trace_add("write", lambda *_,
-                                                n=name: self._update_raw_from_human(n))
+                                n=name: self._update_raw_from_human(n))
             var_raw.trace_add("write", lambda *_,
-                                              n=name: self._update_human_from_raw(n))
-
+                              n=name: self._update_human_from_raw(n))
 
         ttk.Button(frame, text="Применить", command=self._apply_settings).grid(
             row=len(self.setting_vars), column=0, columnspan=2, pady=5
@@ -339,7 +339,7 @@ class DeviceGUI:
         ttk.Label(frame, text='Частота:').grid(row=0, column=2, sticky="w")
         self.var_frequence = tk.DoubleVar(value=15)
         spin_frequence = ttk.Spinbox(frame, from_=0, to=60, increment=1,
-                                    textvariable=self.var_frequence, width=10)
+                                     textvariable=self.var_frequence, width=10)
         spin_frequence.grid(row=0, column=3, sticky="w")
 
         ttk.Label(frame, text="Управление:").grid(row=1, column=0, sticky="w")
@@ -403,7 +403,8 @@ class DeviceGUI:
 
         ttk.Label(frame, textvariable=self.position_text_var).grid(row=0, column=0, padx=5, sticky='w')
         ttk.Label(frame, textvariable=self.position_text_var_set).grid(row=0, column=1, padx=5, sticky='w')
-        ttk.Scale(frame, variable=self.position_var_set, from_=0, to=4096, length=300, command=self._set_position_var).grid( # 4294967295
+        ttk.Scale(frame, variable=self.position_var_set, from_=0, to=4096, length=300,
+                  command=self._set_position_var).grid(  # 4294967295
             row=1, column=0, columnspan=2, padx=5, sticky='w'
         )
         ttk.Button(frame, text="Применить", command=self._set_position).grid(
@@ -448,7 +449,7 @@ class DeviceGUI:
         )
         self.pressure_spinbox.grid(row=1, column=1, padx=5)
         ttk.Button(frame, text="Прочитать", command=self._read_set_pressure).grid(row=1,
-                                                                                                 column=2, padx=5)
+                                                                                  column=2, padx=5)
         ttk.Button(frame, text="Применить", command=self._set_pressure).grid(row=1, column=3, padx=5)
 
         cb = ttk.Checkbutton(frame, text="Скорость", variable=self.calc_speed, command=self._change_speed_press)
@@ -504,6 +505,7 @@ class DeviceGUI:
             if (event.state & 0x4) and event.keysym in ("c", "a"):
                 return
             return "break"
+
         self.command_output.bind("<Key>", disable_typing)
 
         menu = tk.Menu(self.command_output, tearoff=0)
@@ -642,16 +644,16 @@ class DeviceGUI:
             self.window.after(next_interval, self._start_background_tasks)
 
     def append_command_log(self, message: str, msg_type="info"):
-        self.comand_loger_queue.append([message, msg_type])
+        self.command_logier_queue.append([message, msg_type])
 
     def append_command_log_queue(self):
-        for message, msg_type in self.comand_loger_queue:
+        for message, msg_type in self.command_logier_queue:
             self.command_output.insert("end", message + "\n")
             self.command_output.see("end")
             start_index = f"end-{len(message) + 2}c"  # +1 для символа новой строки
             end_index = "end-1c"
             self.command_output.tag_add(msg_type, start_index, end_index)
-        self.comand_loger_queue.clear()
+        self.command_logier_queue.clear()
 
     def run(self):
         self.window.mainloop()

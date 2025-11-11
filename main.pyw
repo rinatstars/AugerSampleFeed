@@ -26,10 +26,10 @@ def load_config(config_path="config.json"):
 def main():
     """Точка входа в приложение"""
     try:
-        config = load_config()
+        config_auger = load_config(config_path="config_auger.json")
     except FileNotFoundError:
         # дефолтные настройки, если нет файла
-        config = {
+        config_auger = {
             "port": "COM3",
             "baudrate": 38400,
             "device_id": 3,
@@ -37,17 +37,28 @@ def main():
             "MOTOR_SPEED_2": 1405000
         }
 
+    try:
+        config_flow_sensor = load_config(config_path="config_flow_sensor.json")
+    except FileNotFoundError:
+        # дефолтные настройки, если нет файла
+        config_flow_sensor = {
+            "ip": "10.116.220.101",
+            "port": 10555,
+            "device_id": 3,
+            "max_attempts": 5,
+            "poll_interval_sec": 2
+        }
+
     controllerAuger = SerialDeviceController(
-        port=config.get("port", "COM3"),
-        baudrate=config.get("baudrate", 38400),
-        device_id=config.get("device_id", 3),
+        port=config_auger.get("port", "COM3"),
+        baudrate=config_auger.get("baudrate", 38400),
+        device_id=config_auger.get("device_id", 3),
     )
 
-    # TODO добавить нормальную загрузку настроек
     controllerFlowSensor = DeviceController(
-        "10.116.220.101",
-        port=10555,
-        device_id=3
+        ip=config_flow_sensor.get("ip", "10.116.220.101"),
+        port=config_flow_sensor.get("device_id", 10555),
+        device_id=config_flow_sensor.get("device_id", 3)
     )
 
     # Создаем poller
@@ -55,7 +66,7 @@ def main():
     pollerFlowSensor = DevicePoller(controllerFlowSensor, interval=0.005)
 
     desint = ArduinoDesint()
-    modelAuger = DeviceModelAuger(controllerAuger, config, pollerAuger, desint)
+    modelAuger = DeviceModelAuger(controllerAuger, config_auger, pollerAuger, desint)
     modelFlowSensor = DeviceModelFlowSensor(controllerFlowSensor, poller=pollerFlowSensor)
 
     app = DeviceGUI(model_auger=modelAuger, desint_model=desint, model_flow_sensor=modelFlowSensor)
