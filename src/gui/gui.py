@@ -89,6 +89,19 @@ class DeviceGUI:
         self._create_log_frame(right_frame)
         self._setup_keyboard_bindings()
 
+        # Обновляем окно для расчета размеров
+        self.window.update_idletasks()
+
+        # Получаем требуемую ширину и высоту содержимого
+        req_width = main_container.winfo_reqwidth() + 20  # + padding
+        req_height = main_container.winfo_reqheight() + 20  # + padding
+
+        # Устанавливаем минимальный размер окна
+        self.window.minsize(req_width, req_height)
+
+        # Устанавливаем текущий размер окна под содержимое
+        self.window.geometry(f"{req_width}x{req_height}")
+
     def _setup_keyboard_bindings(self):
         """Настройка обработчиков клавиатуры"""
         # Привязываем обработчики ко всему окну
@@ -372,6 +385,12 @@ class DeviceGUI:
         frame.pack(fill='x', pady=5)
         ttk.Label(frame, textvariable=self.interval_work_auger).grid(row=0, column=0, padx=5, sticky='w')
         ttk.Label(frame, textvariable=self.position_work_auger).grid(row=0, column=1, padx=5, sticky='w')
+        # Отдельный фрейм для прогресс-бара
+        frame_progress = ttk.Frame(parent)
+        frame_progress.pack(fill='x', pady=5)
+
+        self.progress = ttk.Progressbar(frame_progress, mode='determinate', height=5)
+        self.progress.pack(fill='x', padx=5)
 
     def _create_status_frame_flow_sensor(self, parent):
         """Создает фрейм статуса"""
@@ -605,6 +624,7 @@ class DeviceGUI:
             self.interval_work_auger.set(f"Время подачи пробы: {round(work_time, 1)} c")
 
         self.position_work_auger.set(f"Положение шнека: {round(position, 2)} мм")
+        self.progress['value'] = round(position / 8.4 * 100)
 
         if self.desint_model and self.desint_model.is_connected() and self.desint_model.is_running:
             if self.model_auger.is_end_process():
