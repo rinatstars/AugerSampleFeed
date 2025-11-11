@@ -2,8 +2,8 @@ import shutil
 import os
 import subprocess
 
-APP_NAME = "AugerSmapleFeed"
-SPEC_FILE = "AugerSmapleFeed.spec"
+APP_NAME = "AugerSampleFeed"
+SPEC_FILE = "AugerSampleFeed.spec"
 
 
 def get_version(path=None):
@@ -20,8 +20,8 @@ def create_version_file(version: str, filename="file_version_info.txt", beta=0):
 # UTF-8
 VSVersionInfo(
   ffi=FixedFileInfo(
-    filevers=({version.replace('.', ',')}, {beta}),
-    prodvers=({version.replace('.', ',')}, {beta}),
+    filevers=({version.replace('.', ',')},{beta}),
+    prodvers=({version.replace('.', ',')},{beta}),
     mask=0x3f,
     flags=0x0,
     OS=0x40004,
@@ -53,7 +53,7 @@ VSVersionInfo(
 
 def create_common_version_file(ver_1: str, ver_2: str, dirname):
     full_path = os.path.join(dirname, "version.txt")
-    content = f"exporExcel v.{ver_1}\nexporExcelConfigurator v.{ver_2}"
+    content = f"exportExcel v.{ver_1}\nexportExcelConfigurator v.{ver_2}"
     with open(full_path, "w", encoding="utf-8") as f:
         f.write(content)
     return full_path
