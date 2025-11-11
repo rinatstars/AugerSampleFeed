@@ -61,7 +61,7 @@ class DeviceModelAuger:
         # подготовка очереди для непрерывного опроса
         if poller is not None:
             self._init_poller_queue()
-            # self.poller.init_func_calc_update_from_poller(self.update_from_poller)
+            self.poller.init_func_calc_update_from_poller(self.update_from_poller)
 
     def _init_poller_queue(self):
         # Подготавливаем очереди для данных
