@@ -55,8 +55,8 @@ def main():
     pollerFlowSensor = DevicePoller(controllerFlowSensor, interval=0.005)
 
     desint = ArduinoDesint()
-    modelAuger = DeviceModelAuger(controllerAuger, config, pollerAuger, desint)
     modelFlowSensor = DeviceModelFlowSensor(controllerFlowSensor, poller=pollerFlowSensor)
+    modelAuger = DeviceModelAuger(controllerAuger, config, pollerAuger, desint, modelFlowSensor)
 
     app = DeviceGUI(model_auger=modelAuger, desint_model=desint, model_flow_sensor=modelFlowSensor)
 
