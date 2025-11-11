@@ -15,13 +15,13 @@ def get_version(path=None):
             return f.read().strip()
 
 
-def create_version_file(version: str, filename="file_version_info.txt"):
+def create_version_file(version: str, filename="file_version_info.txt", beta=0):
     content = f"""
 # UTF-8
 VSVersionInfo(
   ffi=FixedFileInfo(
-    filevers=({version.replace('.', ',')}, 0),
-    prodvers=({version.replace('.', ',')}, 0),
+    filevers=({version.replace('.', ',')}, {beta}),
+    prodvers=({version.replace('.', ',')}, {beta}),
     mask=0x3f,
     flags=0x0,
     OS=0x40004,
@@ -35,12 +35,12 @@ VSVersionInfo(
         '040904B0',
         [StringStruct('CompanyName', 'ВМК-Оптоэлектроника'),
          StringStruct('FileDescription', '{APP_NAME}'),
-         StringStruct('FileVersion', '{version}'),
+         StringStruct('FileVersion', '{version} {'(beta)' if beta else ''}'),
          StringStruct('InternalName', '{APP_NAME}'),
          StringStruct('LegalCopyright', '© ВМК-Оптоэлектроника 2025'),
          StringStruct('OriginalFilename', '{APP_NAME}.exe'),
          StringStruct('ProductName', '{APP_NAME}'),
-         StringStruct('ProductVersion', '{version}')])
+         StringStruct('ProductVersion', '{version} {'(beta)' if beta else ''}')])
     ]),
     VarFileInfo([VarStruct('Translation', [1033, 1200])])
   ]
@@ -97,6 +97,17 @@ def git_push(version: str):
 def build():
     version = get_version()
     dist_dir = os.path.join("dist", f"v{version}")
+    beta = 0
+    # если папка с этой версией уже существует, то добавляем к версии 1 и сохраняем в новую папку с beta
+    if os.path.exists(dist_dir):
+        parts = version.split('.')
+        parts[-1] = str(int(parts[-1]) + 1)
+        new_version = '.'.join(parts)
+        version = new_version
+        new_version = new_version + "beta"
+        dist_dir = os.path.join("dist", f"v{new_version}")
+        beta = 1
+        # dist_dir = os.path.join(dist_dir, "beta")
     latest_dir = os.path.join("dist", "latest")
 
     # Удалим build/dist, чтобы не было мусора
@@ -106,7 +117,7 @@ def build():
     #     shutil.rmtree("dist")
 
     # Сгенерируем файл с версией
-    create_version_file(version)
+    create_version_file(version, beta=beta)
 
     # Собираем по .spec
     subprocess.run(
