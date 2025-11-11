@@ -369,7 +369,6 @@ class DeviceModelAuger:
         self.motor1_backward()
         if self.puring_end:
             self.puring_time_counter = [time.time(), 0, True]
-            self.valve2_on()
             self.sensor.open()
 
     def _update_status_flags(self, value: int):
@@ -422,7 +421,7 @@ class DeviceModelAuger:
                 self.valve2_switch()
                 self.puring_time_counter[0] = time.time()
                 self.puring_time_counter[1] += 1
-            if self.puring_time_counter[1] >= self.purge_count * 2:
+            if self.puring_time_counter[1] >= self.purge_count * 2 + 1:
                 self.puring_time_counter = [time.time(), 0, False]
                 self.valve2_off()
                 self.sensor.start()
