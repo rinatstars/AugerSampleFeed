@@ -208,7 +208,7 @@ class DeviceModelAuger:
     def valve1_switch(self):
         if self.status_flags.get('VALVE1_ON'):
             self.valve1_off()
-        else:
+        elif not self.status_flags.get('VALVE2_ON'):
             self.valve1_on()
 
     def valve2_switch(self):
