@@ -368,8 +368,11 @@ class DeviceModelAuger:
         self.motor2_forward()
         self.motor1_backward()
         if self.puring_end:
-            self.puring_time_counter = [time.time(), 0, True]
-            self.sensor.open()
+            self.puring_init()
+
+    def puring_init(self):
+        self.puring_time_counter = [time.time(), 0, True]
+        self.sensor.open()
 
     def _update_status_flags(self, value: int):
         bits = [
