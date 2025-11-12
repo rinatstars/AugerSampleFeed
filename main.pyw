@@ -33,7 +33,7 @@ def main():
             "port": "COM3",
             "baudrate": 38400,
             "device_id": 3,
-            "MOTOR_SPEED_1": 137270,
+            "MOTOR_SPEED_1": 97690,
             "MOTOR_SPEED_2": 1405000
         }
 

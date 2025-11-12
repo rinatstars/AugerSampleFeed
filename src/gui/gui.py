@@ -37,7 +37,7 @@ class DeviceGUI:
         self.interval_polling = StringVar(value="Обновление окна: ---мс")
         self.interval_upd_data = StringVar(value="Обновление данных: ---мс")
         self.interval_work_auger = StringVar(value="Время подачи пробы: ---с")
-        self.position_work_auger = StringVar(value="Положение шнека: ---мм")
+        self.position_work_auger = StringVar(value="Осталось пробы: ---мг")
 
         self.text_press = "Давление"
 
@@ -190,7 +190,7 @@ class DeviceGUI:
             cb.grid(row=i // 4, column=i % 4, sticky="w")
             self.status_vars[bit] = var
 
-        ttk.Label(frame, text="Подача, мм/мин").grid(row=3, column=0, sticky="w")
+        ttk.Label(frame, text="Подача, мг/с").grid(row=3, column=0, sticky="w")
         self.inning_speed = tk.DoubleVar(value=0)
         entry_period_m1 = ttk.Label(frame, textvariable=self.inning_speed, width=10)
         entry_period_m1.grid(row=3, column=1, sticky="w")
@@ -625,7 +625,7 @@ class DeviceGUI:
         if work_time is not None:
             self.interval_work_auger.set(f"Время подачи пробы: {round(work_time, 1)} c")
 
-        self.position_work_auger.set(f"Положение шнека: {round(position, 2)} мм")
+        self.position_work_auger.set(f"Осталось пробы: {round(350 - position * 42.7, 2)} мг")
         self.progress['value'] = min(round(position / 8.4 * 100), 100)
 
         self.model_auger.increase_back_speed = self.increase_back_speed.get()
