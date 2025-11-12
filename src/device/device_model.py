@@ -22,6 +22,7 @@ class DeviceModelAuger:
 
         self.manual = None
         self.manual_start = False
+        self.manual_process = False
         self.manual_start_time = time.time()
 
         self.puring_end = False
@@ -141,12 +142,14 @@ class DeviceModelAuger:
 
     def start_process_manual(self):
         self.manual_start = False
+        self.manual_process = True
         self.motor1_forward()
         self.motor2_forward()
         if self.on_desint and self.desint is not None:
             self.desint.send_start()
 
     def stop_process_manual(self):
+        self.manual_process = False
         if self.manual_start:
             self.manual_start = False
             self.command_loger(f'Старт отменён', 'warning')
@@ -422,11 +425,13 @@ class DeviceModelAuger:
                 self.start_process_manual()
 
     def _go_back_controll(self):
-        if self.manual and self.is_end_blk() and not self.is_end_process():
-            self.go_back()
+        if self.manual_process:
+            self.manual_process = False
+            if self.manual and self.is_end_blk() and not self.is_end_process():
+                self.go_back()
 
-        if self.is_beg_blk() and self.is_m2_run() and not self.is_m1_run():
-            self.motor2_stop()
+            if self.is_beg_blk() and self.is_m2_run() and not self.is_m1_run():
+                self.motor2_stop()
 
     def _puring_control(self):
         if self.puring_time_counter[2]:
