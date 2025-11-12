@@ -143,7 +143,7 @@ class DeviceModelAuger:
         self.manual_start = False
         self.motor1_forward()
         self.motor2_forward()
-        if self.on_desint:
+        if self.on_desint and self.desint is not None:
             self.desint.send_start()
 
     def stop_process_manual(self):
@@ -372,7 +372,8 @@ class DeviceModelAuger:
 
     def puring_init(self):
         self.puring_time_counter = [time.time(), 0, True]
-        self.sensor.open()
+        if self.sensor is not None:
+            self.sensor.open()
 
     def _update_status_flags(self, value: int):
         bits = [
@@ -427,7 +428,8 @@ class DeviceModelAuger:
             if self.puring_time_counter[1] >= self.purge_count * 2 + 1:
                 self.puring_time_counter = [time.time(), 0, False]
                 self.valve2_off()
-                self.sensor.start()
+                if self.sensor is not None:
+                    self.sensor.start()
 
     def find_property_auger(self):
         if self.status_flags.get("BEG_BLK") and not self.is_m1_run():
