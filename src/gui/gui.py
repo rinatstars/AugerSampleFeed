@@ -30,7 +30,7 @@ class DeviceGUI:
 
         self.window = tk.Tk()
         self.window.title("Auger sample introduction system")
-        self.window.geometry("1500x950")
+        self.window.geometry("1500x800")
         icon_path = resource_path("icon.ico")
         self.window.iconbitmap(icon_path)
 
@@ -58,33 +58,50 @@ class DeviceGUI:
         main_container.columnconfigure(1, weight=1)
         main_container.rowconfigure(0, weight=1)
 
-        left_frame = ttk.Frame(main_container)
-        left_frame.grid(row=0, column=0, sticky="nsw", padx=(0, 10))
+        # TODO отключать фреймы отдельных устройств, если не нужны. Сделать через None у устройств
+        device = [1, 1, 1]
 
-        middle_frame = ttk.Frame(main_container)
-        middle_frame.grid(row=0, column=1, sticky="nsw")
+        if device[0]:
+        # Левый фрейм
+            left_frame = ttk.Frame(main_container)
+            left_frame.grid(row=0, column=0, sticky="nsw", padx=(0, 10))
+            # Пробоподача
+            auger_frame = ttk.LabelFrame(left_frame, text="Пробоподача", padding="5")
+            auger_frame.pack(fill='x', pady=5)
+            self._create_connection_frame(auger_frame)
+            self._create_status_frame(auger_frame)
+            self._create_settings_frame(auger_frame)
+            self._create_control_frame(auger_frame)
+            self._create_verify_frame(auger_frame)
+            # Статусы
+            self._create_ping_frame(left_frame)
+            self._create_time_work_frame(left_frame)
 
+        if device[1] or device[2]:
+            # Средний фрейм
+            middle_frame = ttk.Frame(main_container)
+            middle_frame.grid(row=0, column=1, sticky="nsw")
+            if device[1]:
+                # Дезинтегратор
+                desint_frame = ttk.LabelFrame(middle_frame, text="Дезинтегратор", padding="5")
+                desint_frame.pack(fill='x', pady=5)
+                self._create_connection_desint_frame(desint_frame)
+                self._create_desint_frame(desint_frame)
+            if device[2]:
+                # Вытяжка
+                flow_frame = ttk.LabelFrame(middle_frame, text="Вытяжка", padding="5")
+                flow_frame.pack(fill='x', pady=5)
+                self._create_status_frame_flow_sensor(flow_frame)
+                self._create_temperature_frame(flow_frame)
+                self._create_position_frame(flow_frame)
+                self._create_pressure_frame(flow_frame)
+                self._create_command_frame(flow_frame)
+                # self._create_log_frame(left_frame)
+
+
+        # Правый фрейм
         right_frame = ttk.Frame(main_container)
         right_frame.grid(row=0, column=2, sticky="nsw", padx=(10, 0))
-
-        # Пробоподача
-        self._create_connection_frame(left_frame)
-        self._create_status_frame(left_frame)
-        self._create_settings_frame(left_frame)
-        self._create_control_frame(left_frame)
-        self._create_verify_frame(left_frame)
-        # Дезинтегратор
-        self._create_connection_desint_frame(left_frame)
-        self._create_desint_frame(left_frame)
-        self._create_ping_frame(left_frame)
-        self._create_time_work_frame(left_frame)
-        # Вытяжка
-        self._create_status_frame_flow_sensor(middle_frame)
-        self._create_temperature_frame(middle_frame)
-        self._create_position_frame(middle_frame)
-        self._create_pressure_frame(middle_frame)
-        self._create_command_frame(middle_frame)
-        # self._create_log_frame(left_frame)
         # Лог
         self._create_log_frame(right_frame)
         self._setup_keyboard_bindings()
@@ -327,7 +344,7 @@ class DeviceGUI:
             self.desint_model.send_end()
 
     def _create_desint_frame(self, parent):
-        frame = ttk.LabelFrame(parent, text="Дезинтегратор", padding=5)
+        frame = ttk.LabelFrame(parent, text="Настройки/управление", padding=5)
         frame.pack(fill="x", pady=5)
 
         ttk.Label(frame, text='Импульс:').grid(row=0, column=0, sticky="w")
@@ -348,7 +365,7 @@ class DeviceGUI:
         ttk.Button(frame, text="Применить", command=self.apply_desint_settings).grid(row=1, column=3)
         self.on_desint = BooleanVar(value=False)
 
-        ttk.Checkbutton(frame, text='Включать', variable=self.on_desint).grid(row=1, column=4)
+        ttk.Checkbutton(frame, text='Включать', variable=self.on_desint).grid(row=2, column=0)
 
     def apply_desint_settings(self):
         self.desint_model.set_pwm(self.var_impulse.get(), self.var_frequence.get())
@@ -614,10 +631,11 @@ class DeviceGUI:
         self.model_auger.puring_end = self.puring_end.get()
         self.append_command_log_queue()
 
-        status = self.model_flow_sensor.status_flags
-        for name, val in status.items():
-            if name in self.status_vars_flow_sensor:
-                self.status_vars_flow_sensor[name].set(val)
+        if hasattr(self, "status_vars_flow_sensor"):
+            status = self.model_flow_sensor.status_flags
+            for name, val in status.items():
+                if name in self.status_vars_flow_sensor:
+                    self.status_vars_flow_sensor[name].set(val)
 
         pressure = self.model_flow_sensor.last_values_named['PRESSURE']
         if pressure is not None:

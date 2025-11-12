@@ -105,6 +105,7 @@ def main():
     app.window.after(100, process_commands)
 
     # перенаправим stdout/stderr в лог GUI
+
     class GuiOutputRedirector:
         def __init__(self, gui):
             self.gui = gui
