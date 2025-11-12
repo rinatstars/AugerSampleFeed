@@ -389,7 +389,11 @@ class DeviceGUI:
     def _create_verify_frame(self, parent):
         frame = ttk.LabelFrame(parent, text="Верификация", padding=5)
         frame.pack(fill="x", pady=5)
-        ttk.Button(frame, text="Проверить устройство", command=self.model_auger.verify_device).pack()
+
+        ttk.Button(frame, text="Проверить устройство",
+                   command=self.model_auger.verify_device).grid(row=0, column=0, padx=5, sticky='w')
+        ttk.Button(frame, text="starter",
+                   command=self.model_auger.starter_switch).grid(row=0, column=1, padx=5, sticky='w')
 
     def _create_ping_frame(self, parent):
         frame = ttk.LabelFrame(parent, text="Связь", padding="5")

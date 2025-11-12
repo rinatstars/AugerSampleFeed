@@ -12,6 +12,7 @@ class DeviceModelAuger:
         :param config: кортеж с настройками устройства и коэфф. пересчета
         :param poller: DevicePoller (необязателен, можно запускать при подключении)
         """
+        self.starter = False
         self.controller = controller
         self.poller = poller
         self.config = config
@@ -404,6 +405,8 @@ class DeviceModelAuger:
         # Отключение дезинтегратора по пути назад
         self.off_desint_back()
 
+        self.starter_controller()
+
     def off_desint_back(self):
         if self.desint and self.desint.is_connected() and self.desint.is_running:
             if self.is_end_process():
@@ -444,7 +447,6 @@ class DeviceModelAuger:
 
     def find_property_auger(self):
         if self.status_flags.get("BEG_BLK") and not self.is_m1_run():
-            self.start_time = time.time()
             self.position = 0
             self.end_time = 0
 
@@ -505,3 +507,23 @@ class DeviceModelAuger:
 
     def _read(self, reg):
         return self.controller.read_register(reg)
+
+    # отладочный стартер
+    def starter_switch(self):
+        self.starter = not self.starter
+        self.start_time = time.time()
+        self.command_loger(f'starter {self.starter}')
+
+    def starter_controller(self):
+        if self.starter:
+            if time.time() - self.start_time >= 14:
+                if self.status_flags.get('M1_FWD'):
+                    self.stop_process_manual()
+                    self.start_time = time.time()
+                    return
+                if self.is_end_process():
+                    self.start_time = time.time()
+                    return
+                if not self.status_flags.get('M1_FWD'):
+                    self.start_process_manual()
+                    self.start_time = time.time()
