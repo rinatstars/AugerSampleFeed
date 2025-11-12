@@ -2,7 +2,7 @@ import shutil
 import os
 import subprocess
 
-APP_NAME = "AugerSampleFeed"
+APP_NAME = "ASIS"
 SPEC_FILE = "AugerSampleFeed.spec"
 
 
