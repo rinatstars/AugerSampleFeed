@@ -33,7 +33,7 @@ def main():
             "port": "COM3",
             "baudrate": 38400,
             "device_id": 3,
-            "MOTOR_SPEED_1": 137270,
+            "MOTOR_SPEED_1": 97690,
             "MOTOR_SPEED_2": 1405000
         }
 
@@ -66,8 +66,8 @@ def main():
     pollerFlowSensor = DevicePoller(controllerFlowSensor, interval=0.005)
 
     desint = ArduinoDesint()
-    modelAuger = DeviceModelAuger(controllerAuger, config_auger, pollerAuger, desint)
     modelFlowSensor = DeviceModelFlowSensor(controllerFlowSensor, poller=pollerFlowSensor)
+    modelAuger = DeviceModelAuger(controllerAuger, config_auger, pollerAuger, desint, modelFlowSensor)
 
     app = DeviceGUI(model_auger=modelAuger, desint_model=desint, model_flow_sensor=modelFlowSensor)
 

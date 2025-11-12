@@ -31,18 +31,18 @@ REG_VERIFY = 0x20
 VERIFY_CODE = 0x5602  # Код идентификации устройства
 
 # Биты статуса
-FS_START = 0
-FS_BEG_BLK = 1
-FS_END_BLK = 2
-FS_M1_FWD = 3
-FS_M1_BACK = 4
-FS_M2_FWD = 5
-FS_M2_BACK = 6
-FS_VALVE1_ON = 7
-FS_VALVE2_ON = 8
-FS_RUN = 10
-FS_RESET = 14
-FS_PING = 15
+FLAGS_MAP = {'START': 0,
+'BEG_BLK': 1,
+'END_BLK': 2,
+'M1_FWD': 3,
+'M1_BACK': 4,
+'M2_FWD': 5,
+'M2_BACK': 6,
+'VALVE1_ON': 7,
+'VALVE2_ON': 8,
+'RUN': 10,
+'RESET': 14,
+'PING': 15}
 
 # Команды для REG_CONTROL
 CMD_NULL = 0

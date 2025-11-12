@@ -6,31 +6,35 @@ from src.device.serial_device_controller import SerialDeviceController
 
 
 class DeviceModelAuger:
-    def __init__(self, controller: SerialDeviceController, config, poller=None, desint=None):
+    def __init__(self, controller: SerialDeviceController, config, poller=None, desint=None, sensor=None):
         """
         :param controller: SerialDeviceController
         :param config: кортеж с настройками устройства и коэфф. пересчета
         :param poller: DevicePoller (необязателен, можно запускать при подключении)
         """
+        self.starter = False
         self.controller = controller
         self.poller = poller
         self.config = config
         self.desint = desint
+        self.sensor = sensor
         self.on_desint = False
         self.command_loger = None
 
         self.manual = None
         self.manual_start = False
+        self.manual_process = False
         self.manual_start_time = time.time()
 
         self.puring_end = False
         self.puring_time_counter = [time.time(), 0, False]
+        self.purge_count = 3
 
         # Храним статусы и последние значения
         self.status_flags = {}
         self._update_status_flags(0)
         self.settings = {
-            "SET_PERIOD_M1": {"default": 17.7, "alias": "Подача уст, мм/мин"},
+            "SET_PERIOD_M1": {"default": 8, "alias": "Подача уст, мг/с"},
             "SET_PERIOD_M2": {"default": 180, "alias": "Вращение уст, об/мин"},
             "T_START": {"default": 1000, "alias": "Задержка старта, мс"},
             "T_GRIND": {"default": 1000, "alias": "Остановка в конце, мс"},
@@ -46,7 +50,7 @@ class DeviceModelAuger:
 
         # Таймер подачи пробы
         self.start_time = time.time()
-        self.end_time = None
+        self.end_time = 0
 
         self.delta_time = time.time()
         self.position = 0
@@ -138,10 +142,11 @@ class DeviceModelAuger:
         self.manual_start = False
         self.motor1_forward()
         self.motor2_forward()
-        if self.on_desint:
+        if self.on_desint and self.desint is not None:
             self.desint.send_start()
 
     def stop_process_manual(self):
+        self.manual_process = False
         if self.manual_start:
             self.manual_start = False
             self.command_loger(f'Старт отменён', 'warning')
@@ -199,6 +204,18 @@ class DeviceModelAuger:
         if self.command_loger is not None:
             self.command_loger(f"reg: {hex(C.REG_COM_V2)}, write: {hex(C.VALVE_CMD_OFF)}")
         return self._write(C.REG_COM_V2, C.VALVE_CMD_OFF)
+
+    def valve1_switch(self):
+        if self.status_flags.get('VALVE1_ON'):
+            self.valve1_off()
+        elif not self.status_flags.get('VALVE2_ON'):
+            self.valve1_on()
+
+    def valve2_switch(self):
+        if self.status_flags.get('VALVE2_ON'):
+            self.valve2_off()
+        elif not self.status_flags.get('VALVE2_ON'):
+            self.valve2_on()
 
     def verify_device(self):
         try:
@@ -352,15 +369,20 @@ class DeviceModelAuger:
         self.motor2_forward()
         self.motor1_backward()
         if self.puring_end:
-            self.puring_time_counter = [time.time(), 0, True]
-            self.valve2_on()
+            self.puring_init()
+
+    def puring_init(self):
+        self.puring_time_counter = [time.time(), 0, True]
+        if self.sensor is not None:
+            self.sensor.open()
 
     def _update_status_flags(self, value: int):
         bits = [
-            "START", "BEG_BLK", "END_BLK", "M1_FWD", "M1_BACK",
-            "M2_FWD", "M2_BACK", "VALVE1_ON", "VALVE2_ON", "RESET", "PING"
+            "START", "M1_FWD", "M2_FWD", "BEG_BLK", "PING", "M1_BACK", "M2_BACK", "END_BLK", "RESET",
+            "VALVE1_ON", "VALVE2_ON", 'RUN'
         ]
-        for i, bit in enumerate(bits):
+        for bit in bits:
+            i = C.FLAGS_MAP[bit]
             self.status_flags[bit] = bool(value & (1 << i))
 
         # управление временем подачи
@@ -369,12 +391,26 @@ class DeviceModelAuger:
         # Управление повышением скорости назад
         self._set_back_speed()
 
-        if self.manual and self.is_end_blk() and not self.is_end_process():
-            self.go_back()
+        # Управление возвратом назад по достижению концевика
+        self._go_back_controll()
 
-        if self.is_beg_blk() and self.is_m2_run() and not self.is_m1_run():
-            self.motor2_stop()
+        # Управление отложенным стартом
+        self._manual_start_controll()
 
+        # Управление множественными продувками
+        self._puring_control()
+
+        # Отключение дезинтегратора по пути назад
+        self.off_desint_back()
+
+        self.starter_controller()
+
+    def off_desint_back(self):
+        if self.desint and self.desint.is_connected() and self.desint.is_running:
+            if self.is_end_process():
+                self.desint.send_end()
+
+    def _manual_start_controll(self):
         if self.manual_start:
             delay_time = (time.time() - self.manual_start_time) * 1000
             start_time = self.settings_vars.get('T_START')
@@ -388,32 +424,37 @@ class DeviceModelAuger:
                 self.manual_start = False
                 self.start_process_manual()
 
+    def _go_back_controll(self):
+        if self.manual and self.is_end_blk() and not self.is_end_process():
+            self.go_back()
+
+        if self.is_beg_blk() and self.is_m2_run() and not self.is_m1_run():
+            self.motor2_stop()
+
+    def _puring_control(self):
         if self.puring_time_counter[2]:
             if (time.time() - self.puring_time_counter[0]) * 1000 > self.settings_vars.get('T_PURGING').get():
-                if self.status_flags.get('VALVE2_ON'):
-                    self.valve2_off()
-                else:
-                    self.valve2_on()
+                self.valve2_switch()
                 self.puring_time_counter[0] = time.time()
                 self.puring_time_counter[1] += 1
-            if self.puring_time_counter[1] > 6:
+            if self.puring_time_counter[1] >= self.purge_count * 2:
                 self.puring_time_counter = [time.time(), 0, False]
                 self.valve2_off()
+                if self.sensor is not None:
+                    self.sensor.start()
 
     def find_property_auger(self):
         if self.status_flags.get("BEG_BLK") and not self.is_m1_run():
-            self.start_time = time.time()
             self.position = 0
-            self.end_time = None
-        if self.status_flags.get("END_BLK") and self.end_time is None:
-            self.end_time = time.time()
+            self.end_time = 0
 
         if self.status_flags.get("M1_FWD"):
             speed = self.period_to_speed_m1(self.last_motor_period["PERIOD_M1"])
-            self.position += speed * (time.time() - self.delta_time) / 60
+            self.position += speed * (time.time() - self.delta_time)
+            self.end_time += time.time() - self.delta_time
         if self.status_flags.get("M1_BACK"):
             speed = self.period_to_speed_m1(self.last_motor_period["PERIOD_M1"])
-            self.position -= speed * (time.time() - self.delta_time) / 60
+            self.position -= speed * (time.time() - self.delta_time)
         self.delta_time = time.time()
 
     def _set_back_speed(self):
@@ -430,11 +471,12 @@ class DeviceModelAuger:
             pass
 
     def get_work_time(self):
-        if self.end_time:
-            return round(self.end_time - self.start_time, 1)
-        if self.start_time:
-            return round(time.time() - self.start_time, 1)
-        return 0
+        # if self.end_time:
+        #     return round(self.end_time - self.start_time, 1)
+        # if self.start_time:
+        #     return round(time.time() - self.start_time, 1)
+        # return 0
+        return self.end_time
 
     def is_end_process(self):
         return self.status_flags.get('M1_BACK')
@@ -451,6 +493,11 @@ class DeviceModelAuger:
     def is_m1_run(self):
         return self.status_flags.get('M1_FWD') or self.status_flags.get('M1_BACK')
 
+    def is_valve2_on(self):
+        return self.status_flags.get('VALVE2_ON')
+
+    def is_valve1_on(self):
+        return self.status_flags.get('VALVE1_ON')
     # ------------------- Вспомогательные -------------------
 
     def _write(self, reg, value):
@@ -458,3 +505,23 @@ class DeviceModelAuger:
 
     def _read(self, reg):
         return self.controller.read_register(reg)
+
+    # отладочный стартер
+    def starter_switch(self):
+        self.starter = not self.starter
+        self.start_time = time.time()
+        self.command_loger(f'starter {self.starter}')
+
+    def starter_controller(self):
+        if self.starter:
+            if time.time() - self.start_time >= 14:
+                if self.status_flags.get('M1_FWD'):
+                    self.stop_process_manual()
+                    self.start_time = time.time()
+                    return
+                if self.is_end_process():
+                    self.start_time = time.time()
+                    return
+                if not self.status_flags.get('M1_FWD'):
+                    self.start_process_manual()
+                    self.start_time = time.time()

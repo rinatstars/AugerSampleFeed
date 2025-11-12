@@ -37,7 +37,7 @@ class DeviceGUI:
         self.interval_polling = StringVar(value="Обновление окна: ---мс")
         self.interval_upd_data = StringVar(value="Обновление данных: ---мс")
         self.interval_work_auger = StringVar(value="Время подачи пробы: ---с")
-        self.position_work_auger = StringVar(value="Положение шнека: ---мм")
+        self.position_work_auger = StringVar(value="Осталось пробы: ---мг")
 
         self.text_press = "Давление"
 
@@ -105,6 +105,19 @@ class DeviceGUI:
         # Лог
         self._create_log_frame(right_frame)
         self._setup_keyboard_bindings()
+
+        # Обновляем окно для расчета размеров
+        self.window.update_idletasks()
+
+        # Получаем требуемую ширину и высоту содержимого
+        req_width = main_container.winfo_reqwidth() + 20  # + padding
+        req_height = main_container.winfo_reqheight() + 20  # + padding
+
+        # Устанавливаем минимальный размер окна
+        self.window.minsize(req_width, req_height)
+
+        # Устанавливаем текущий размер окна под содержимое
+        self.window.geometry(f"{req_width}x{req_height}")
 
     def _setup_keyboard_bindings(self):
         """Настройка обработчиков клавиатуры"""
@@ -187,14 +200,20 @@ class DeviceGUI:
         frame = ttk.LabelFrame(parent, text="Статус", padding=5)
         frame.pack(fill="x", pady=5)
 
-        self.status_vars = {}
-        for i, bit in enumerate(self.model_auger.status_flags):
-            var = tk.BooleanVar(value=False)
-            cb = ttk.Checkbutton(frame, text=bit, variable=var, state="disabled")
-            cb.grid(row=i // 4, column=i % 4, sticky="w")
-            self.status_vars[bit] = var
+        # self.status_vars = {}
+        # for i, bit in enumerate(self.model_auger.status_flags):
+        #     var = tk.BooleanVar(value=False)
+        #     cb = ttk.Checkbutton(frame, text=bit, variable=var, state="disabled")
+        #     cb.grid(row=i // 4, column=i % 4, sticky="w")
+        #     self.status_vars[bit] = var
 
-        ttk.Label(frame, text="Подача, мм/мин").grid(row=3, column=0, sticky="w")
+        self.status_labels = {}
+        for i, bit in enumerate(self.model_auger.status_flags):
+            label = ttk.Label(frame, text=bit, width=12)
+            label.grid(row=i // 4, column=i % 4)
+            self.status_labels[bit] = label
+
+        ttk.Label(frame, text="Подача, мг/с").grid(row=3, column=0, sticky="w")
         self.inning_speed = tk.DoubleVar(value=0)
         entry_period_m1 = ttk.Label(frame, textvariable=self.inning_speed, width=10)
         entry_period_m1.grid(row=3, column=1, sticky="w")
@@ -283,6 +302,10 @@ class DeviceGUI:
                 self._syncing = False
 
     def _create_control_frame(self, parent):
+        style = ttk.Style()
+        style.configure("Start.TButton", background="green")
+        style.configure("Stop.TButton", background="red")
+
         frame = ttk.LabelFrame(parent, text="Управление", padding=5)
         frame.pack(fill="x", pady=5)
 
@@ -302,13 +325,23 @@ class DeviceGUI:
         ttk.Button(frame, text="Назад", command=self.model_auger.motor2_backward).grid(row=2, column=2)
         ttk.Button(frame, text="Стоп", command=self.model_auger.motor2_stop).grid(row=2, column=3)
 
-        ttk.Label(frame, text="Клапан 1:").grid(row=3, column=0, sticky="w")
-        ttk.Button(frame, text="Открыть", command=self.model_auger.valve1_on).grid(row=3, column=1)
-        ttk.Button(frame, text="Закрыть", command=self.model_auger.valve1_off).grid(row=3, column=2)
+        ttk.Label(frame, text="Клапана:").grid(row=3, column=0, sticky="w")
 
-        ttk.Label(frame, text="Клапан 2:").grid(row=4, column=0, sticky="w")
-        ttk.Button(frame, text="Открыть", command=self.model_auger.valve2_on).grid(row=4, column=1)
-        ttk.Button(frame, text="Закрыть", command=self.model_auger.valve2_off).grid(row=4, column=2)
+
+
+        self.switch_v1 = ttk.Button(frame, text="Клапан 1", command=self.model_auger.valve1_switch,
+                                    style="Stop.TButton")
+        self.switch_v1.grid(row=3, column=1)
+        self.switch_v2 = ttk.Button(frame, text="Клапан 2", command=self.model_auger.valve2_switch,
+                                    style="Stop.TButton")
+        self.switch_v2.grid(row=3, column=2)
+
+        ttk.Label(frame, text="Продувка:").grid(row=4, column=0, sticky="w")
+        ttk.Button(frame, text="Продуть", command=self.model_auger.puring_init).grid(row=4, column=1)
+        ttk.Label(frame, text="Количество:").grid(row=4, column=2, sticky="w", padx=(10, 0))
+        self.purge_count = IntVar(value=3)
+        purge_spinbox = ttk.Spinbox(frame, from_=1, to=100, textvariable=self.purge_count, width=5)
+        purge_spinbox.grid(row=4, column=3, sticky="w", padx=5)
 
         self.increase_back_speed = BooleanVar(value=True)
         self.manual = BooleanVar(value=True)
@@ -373,7 +406,11 @@ class DeviceGUI:
     def _create_verify_frame(self, parent):
         frame = ttk.LabelFrame(parent, text="Верификация", padding=5)
         frame.pack(fill="x", pady=5)
-        ttk.Button(frame, text="Проверить устройство", command=self.model_auger.verify_device).pack()
+
+        ttk.Button(frame, text="Проверить устройство",
+                   command=self.model_auger.verify_device).grid(row=0, column=0, padx=5, sticky='w')
+        ttk.Button(frame, text="starter",
+                   command=self.model_auger.starter_switch).grid(row=0, column=1, padx=5, sticky='w')
 
     def _create_ping_frame(self, parent):
         frame = ttk.LabelFrame(parent, text="Связь", padding="5")
@@ -386,6 +423,12 @@ class DeviceGUI:
         frame.pack(fill='x', pady=5)
         ttk.Label(frame, textvariable=self.interval_work_auger).grid(row=0, column=0, padx=5, sticky='w')
         ttk.Label(frame, textvariable=self.position_work_auger).grid(row=0, column=1, padx=5, sticky='w')
+        # Отдельный фрейм для прогресс-бара
+        frame_progress = ttk.Frame(parent)
+        frame_progress.pack(fill='x', pady=5)
+
+        self.progress = ttk.Progressbar(frame_progress, mode='determinate')
+        self.progress.pack(fill='x', padx=5)
 
     def _create_status_frame_flow_sensor(self, parent):
         """Создает фрейм статуса"""
@@ -559,6 +602,7 @@ class DeviceGUI:
                 self.append_command_log(f"Подключено: {self.port_var.get()} @ {self.baud_var.get()}")
                 self.connect_btn.config(text="Отключить")
                 self._read_settings()
+                self.model_auger.settings_vars = self.setting_vars.copy()
             else:
                 messagebox.showerror("Ошибка", "Не удалось подключиться")
 
@@ -609,8 +653,12 @@ class DeviceGUI:
     def _update_status(self):
         status = self.model_auger.status_flags
         for name, val in status.items():
-            if name in self.status_vars:
-                self.status_vars[name].set(val)
+            if name in self.status_labels:
+                label = self.status_labels[name]
+                if val:
+                    label.configure(foreground="red")  # Красный если флаг установлен
+                else:
+                    label.configure(foreground="gray")  # Серый если флаг сброшен
 
         self.inning_speed.set(self.model_auger.get_speed_m1())
         self.rotate_speed.set(self.model_auger.get_speed_m2())
@@ -620,16 +668,17 @@ class DeviceGUI:
         if work_time is not None:
             self.interval_work_auger.set(f"Время подачи пробы: {round(work_time, 1)} c")
 
-        self.position_work_auger.set(f"Положение шнека: {round(position, 2)} мм")
-
-        if self.desint_model and self.desint_model.is_connected() and self.desint_model.is_running:
-            if self.model_auger.is_end_process():
-                self.desint_model.send_end()
+        self.position_work_auger.set(f"Осталось пробы: {round(350 - position)} мг")
+        self.progress['value'] = min(round(position / 350 * 100), 100)
 
         self.model_auger.increase_back_speed = self.increase_back_speed.get()
         self.model_auger.manual = self.manual.get()
         self.model_auger.puring_end = self.puring_end.get()
+        self.model_auger.purge_count = self.purge_count.get()
         self.append_command_log_queue()
+
+        style = 'Start.TButton' if self.model_auger.is_valve2_on() else 'Stop.TButton'
+        self.switch_v2.config(style=style)
 
         if hasattr(self, "status_vars_flow_sensor"):
             status = self.model_flow_sensor.status_flags
