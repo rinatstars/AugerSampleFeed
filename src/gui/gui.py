@@ -74,8 +74,8 @@ class DeviceGUI:
         self._create_control_frame(left_frame)
         self._create_verify_frame(left_frame)
         # Дезинтегратор
-        self._create_connection_desint_frame(left_frame)
-        self._create_desint_frame(left_frame)
+        self._create_connection_desint_frame(middle_frame)
+        self._create_desint_frame(middle_frame)
         self._create_ping_frame(left_frame)
         self._create_time_work_frame(left_frame)
         # Вытяжка
@@ -562,6 +562,7 @@ class DeviceGUI:
                 self.append_command_log(f"Подключено: {self.port_var.get()} @ {self.baud_var.get()}")
                 self.connect_btn.config(text="Отключить")
                 self._read_settings()
+                self.model_auger.settings_vars = self.setting_vars.copy()
             else:
                 messagebox.showerror("Ошибка", "Не удалось подключиться")
 
