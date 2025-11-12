@@ -625,8 +625,8 @@ class DeviceGUI:
         if work_time is not None:
             self.interval_work_auger.set(f"Время подачи пробы: {round(work_time, 1)} c")
 
-        self.position_work_auger.set(f"Осталось пробы: {round(350 - position * 42.7, 2)} мг")
-        self.progress['value'] = min(round(position / 8.4 * 100), 100)
+        self.position_work_auger.set(f"Осталось пробы: {round(350 - position)} мг")
+        self.progress['value'] = min(round(position / 350 * 100), 100)
 
         self.model_auger.increase_back_speed = self.increase_back_speed.get()
         self.model_auger.manual = self.manual.get()
