@@ -398,6 +398,14 @@ class DeviceModelAuger:
         # Управление множественными продувками
         self._puring_control()
 
+        # Отключение дезинтегратора по пути назад
+        self.off_desint_back()
+
+    def off_desint_back(self):
+        if self.desint and self.desint.is_connected() and self.desint.is_running:
+            if self.is_end_process():
+                self.desint.send_end()
+
     def _manual_start_controll(self):
         if self.manual_start:
             delay_time = (time.time() - self.manual_start_time) * 1000

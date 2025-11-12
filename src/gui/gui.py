@@ -627,10 +627,6 @@ class DeviceGUI:
         self.position_work_auger.set(f"Положение шнека: {round(position, 2)} мм")
         self.progress['value'] = min(round(position / 8.4 * 100), 100)
 
-        if self.desint_model and self.desint_model.is_connected() and self.desint_model.is_running:
-            if self.model_auger.is_end_process():
-                self.desint_model.send_end()
-
         self.model_auger.increase_back_speed = self.increase_back_speed.get()
         self.model_auger.manual = self.manual.get()
         self.model_auger.puring_end = self.puring_end.get()
