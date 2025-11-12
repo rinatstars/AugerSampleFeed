@@ -377,8 +377,8 @@ class DeviceModelAuger:
 
     def _update_status_flags(self, value: int):
         bits = [
-            "START", "BEG_BLK", "END_BLK", "M1_FWD", "M1_BACK",
-            "M2_FWD", "M2_BACK", "VALVE1_ON", "VALVE2_ON", "RESET", "PING"
+            "START", "M1_FWD", "M2_FWD", "BEG_BLK", "PING", "M1_BACK", "M2_BACK", "END_BLK", "RESET",
+            "VALVE1_ON", "VALVE2_ON"
         ]
         for i, bit in enumerate(bits):
             self.status_flags[bit] = bool(value & (1 << i))

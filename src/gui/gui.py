@@ -190,11 +190,10 @@ class DeviceGUI:
         #     cb.grid(row=i // 4, column=i % 4, sticky="w")
         #     self.status_vars[bit] = var
 
-        self.status_labels = {}  # Изменяем на хранение меток
+        self.status_labels = {}
         for i, bit in enumerate(self.model_auger.status_flags):
-            # Создаем метку вместо чекбокса
-            label = ttk.Label(frame, text=bit)
-            label.grid(row=i // 4, column=i % 4, sticky="w")
+            label = ttk.Label(frame, text=bit, width=12)
+            label.grid(row=i // 4, column=i % 4)
             self.status_labels[bit] = label
 
         ttk.Label(frame, text="Подача, мг/с").grid(row=3, column=0, sticky="w")
