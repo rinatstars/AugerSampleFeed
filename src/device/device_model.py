@@ -447,11 +447,11 @@ class DeviceModelAuger:
 
         if self.status_flags.get("M1_FWD"):
             speed = self.period_to_speed_m1(self.last_motor_period["PERIOD_M1"])
-            self.position += speed * (time.time() - self.delta_time) / 60
+            self.position += speed * (time.time() - self.delta_time)
             self.end_time += time.time() - self.delta_time
         if self.status_flags.get("M1_BACK"):
             speed = self.period_to_speed_m1(self.last_motor_period["PERIOD_M1"])
-            self.position -= speed * (time.time() - self.delta_time) / 60
+            self.position -= speed * (time.time() - self.delta_time)
         self.delta_time = time.time()
 
     def _set_back_speed(self):
