@@ -298,13 +298,14 @@ class DeviceGUI:
         ttk.Button(frame, text="Назад", command=self.model_auger.motor2_backward).grid(row=2, column=2)
         ttk.Button(frame, text="Стоп", command=self.model_auger.motor2_stop).grid(row=2, column=3)
 
-        ttk.Label(frame, text="Клапан 1:").grid(row=3, column=0, sticky="w")
-        ttk.Button(frame, text="Переключить", command=self.model_auger.valve1_switch).grid(row=3, column=1)
+        ttk.Label(frame, text="Клапана:").grid(row=3, column=0, sticky="w")
+        ttk.Button(frame, text="Клапан 1", command=self.model_auger.valve1_switch).grid(row=3, column=1)
 
-        ttk.Label(frame, text="Клапан 2:").grid(row=4, column=0, sticky="w")
-        ttk.Button(frame, text="Переключить", command=self.model_auger.valve2_switch).grid(row=4, column=1)
+        ttk.Button(frame, text="Клапан 2", command=self.model_auger.valve2_switch).grid(row=3, column=2)
 
-        ttk.Label(frame, text="Продувок:").grid(row=4, column=2, sticky="w", padx=(10, 0))
+        ttk.Label(frame, text="Продувка:").grid(row=4, column=0, sticky="w")
+        ttk.Button(frame, text="Продуть", command=self.model_auger.puring_init).grid(row=4, column=1)
+        ttk.Label(frame, text="Количество:").grid(row=4, column=2, sticky="w", padx=(10, 0))
         self.purge_count = IntVar(value=3)
         purge_spinbox = ttk.Spinbox(frame, from_=1, to=100, textvariable=self.purge_count, width=5)
         purge_spinbox.grid(row=4, column=3, sticky="w", padx=5)
