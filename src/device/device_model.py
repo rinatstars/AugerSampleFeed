@@ -433,7 +433,7 @@ class DeviceModelAuger:
                 self.valve2_switch()
                 self.puring_time_counter[0] = time.time()
                 self.puring_time_counter[1] += 1
-            if self.puring_time_counter[1] >= self.purge_count * 2 + 1:
+            if self.puring_time_counter[1] >= self.purge_count * 2:
                 self.puring_time_counter = [time.time(), 0, False]
                 self.valve2_off()
                 if self.sensor is not None:
