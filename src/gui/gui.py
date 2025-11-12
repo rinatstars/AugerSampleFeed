@@ -183,12 +183,19 @@ class DeviceGUI:
         frame = ttk.LabelFrame(parent, text="Статус", padding=5)
         frame.pack(fill="x", pady=5)
 
-        self.status_vars = {}
+        # self.status_vars = {}
+        # for i, bit in enumerate(self.model_auger.status_flags):
+        #     var = tk.BooleanVar(value=False)
+        #     cb = ttk.Checkbutton(frame, text=bit, variable=var, state="disabled")
+        #     cb.grid(row=i // 4, column=i % 4, sticky="w")
+        #     self.status_vars[bit] = var
+
+        self.status_labels = {}  # Изменяем на хранение меток
         for i, bit in enumerate(self.model_auger.status_flags):
-            var = tk.BooleanVar(value=False)
-            cb = ttk.Checkbutton(frame, text=bit, variable=var, state="disabled")
-            cb.grid(row=i // 4, column=i % 4, sticky="w")
-            self.status_vars[bit] = var
+            # Создаем метку вместо чекбокса
+            label = ttk.Label(frame, text=bit)
+            label.grid(row=i // 4, column=i % 4, sticky="w")
+            self.status_labels[bit] = label
 
         ttk.Label(frame, text="Подача, мг/с").grid(row=3, column=0, sticky="w")
         self.inning_speed = tk.DoubleVar(value=0)
@@ -624,8 +631,12 @@ class DeviceGUI:
     def _update_status(self):
         status = self.model_auger.status_flags
         for name, val in status.items():
-            if name in self.status_vars:
-                self.status_vars[name].set(val)
+            if name in self.status_labels:
+                label = self.status_labels[name]
+                if val:
+                    label.configure(foreground="red")  # Красный если флаг установлен
+                else:
+                    label.configure(foreground="gray")  # Серый если флаг сброшен
 
         self.inning_speed.set(self.model_auger.get_speed_m1())
         self.rotate_speed.set(self.model_auger.get_speed_m2())
