@@ -490,6 +490,11 @@ class DeviceModelAuger:
     def is_m1_run(self):
         return self.status_flags.get('M1_FWD') or self.status_flags.get('M1_BACK')
 
+    def is_valve2_on(self):
+        return self.status_flags.get('VALVE2_ON')
+
+    def is_valve1_on(self):
+        return self.status_flags.get('VALVE1_ON')
     # ------------------- Вспомогательные -------------------
 
     def _write(self, reg, value):

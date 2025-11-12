@@ -279,6 +279,10 @@ class DeviceGUI:
                 self._syncing = False
 
     def _create_control_frame(self, parent):
+        style = ttk.Style()
+        style.configure("Start.TButton", background="green")
+        style.configure("Stop.TButton", background="red")
+
         frame = ttk.LabelFrame(parent, text="Управление", padding=5)
         frame.pack(fill="x", pady=5)
 
@@ -299,9 +303,15 @@ class DeviceGUI:
         ttk.Button(frame, text="Стоп", command=self.model_auger.motor2_stop).grid(row=2, column=3)
 
         ttk.Label(frame, text="Клапана:").grid(row=3, column=0, sticky="w")
-        ttk.Button(frame, text="Клапан 1", command=self.model_auger.valve1_switch).grid(row=3, column=1)
 
-        ttk.Button(frame, text="Клапан 2", command=self.model_auger.valve2_switch).grid(row=3, column=2)
+
+
+        self.switch_v1 = ttk.Button(frame, text="Клапан 1", command=self.model_auger.valve1_switch,
+                                    style="Stop.TButton")
+        self.switch_v1.grid(row=3, column=1)
+        self.switch_v2 = ttk.Button(frame, text="Клапан 2", command=self.model_auger.valve2_switch,
+                                    style="Stop.TButton")
+        self.switch_v2.grid(row=3, column=2)
 
         ttk.Label(frame, text="Продувка:").grid(row=4, column=0, sticky="w")
         ttk.Button(frame, text="Продуть", command=self.model_auger.puring_init).grid(row=4, column=1)
@@ -633,6 +643,9 @@ class DeviceGUI:
         self.model_auger.puring_end = self.puring_end.get()
         self.model_auger.purge_count = self.purge_count.get()
         self.append_command_log_queue()
+
+        style = 'Start.TButton' if self.model_auger.is_valve2_on() else 'Stop.TButton'
+        self.switch_v2.config(style=style)
 
         status = self.model_flow_sensor.status_flags
         for name, val in status.items():
