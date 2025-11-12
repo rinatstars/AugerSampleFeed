@@ -33,7 +33,7 @@ class DeviceModelAuger:
         self.status_flags = {}
         self._update_status_flags(0)
         self.settings = {
-            "SET_PERIOD_M1": {"default": 17.7, "alias": "Подача уст, мг/с"},
+            "SET_PERIOD_M1": {"default": 8, "alias": "Подача уст, мг/с"},
             "SET_PERIOD_M2": {"default": 180, "alias": "Вращение уст, об/мин"},
             "T_START": {"default": 1000, "alias": "Задержка старта, мс"},
             "T_GRIND": {"default": 1000, "alias": "Остановка в конце, мс"},
